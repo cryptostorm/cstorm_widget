@@ -105,6 +105,30 @@ my $cw = $mw->new_toplevel;
 $cw->g_wm_withdraw();
 Tkx::tk(appname => "cryptostorm.is darknet client");
 Tkx::wm_iconphoto($mw, "mainicon");
+my $pi = Win32::Process::Info->new;
+my @info = $pi->GetProcInfo();
+foreach(@info) {
+ if($_->{Name} =~ /^client.exe$/) {
+  if (($_->{ExecutablePath} =~ /Cryptostorm Client/) && ($_->{ProcessId} != $$)) {
+   $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
+                                        -message => "Only one instance of this program can be ran at a time.\nWould you like to close the other instance?\n",
+                                        -icon => "question", -title => "cryptostorm.is client");
+   if ($tokillornot eq "yes") {
+    Win32::Process::KillProcess ($_->{ProcessId}, 0);
+	$pi = Win32::Process::Info->new;
+    @info = $pi->GetProcInfo();
+	foreach(@info) {
+     if($_->{Name} =~ /^vpn32.exe$/) {
+      Win32::Process::KillProcess ($_->{ProcessId}, 0);
+	 }
+	}
+   }
+   if ($tokillornot eq "no") {
+    exit;
+   }
+  }
+ }
+}
 my $sr = $mw->new_tkx_SplashScreen(
 -image      => Tkx::image_create_photo(-file => "..\\res\\splash.png"),
 -width      => 'auto',
