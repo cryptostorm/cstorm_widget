@@ -6,7 +6,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "1.22";
+our $VERSION = "1.23";
 use strict;
 use warnings;
 use Tkx;
