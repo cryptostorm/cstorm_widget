@@ -657,12 +657,20 @@ sub watch_logbox {
    $custom = '';
   }
   if ($line =~ /Initialization Sequence Complete/) {
-   #$logbox->configure(-state => "disabled");
-   step_pbar();
-   $statusvar = "Connected.";
-   $balloon_msg = "Connected to the cryptostorm darknet.";
-   $cancel->configure(-text => "Disconnect");
-   &hidewin;
+   if ($line =~ /Initialization Sequence Complete With Errors/) {
+    $cancel->configure(-text => "Exit");
+    $connect->configure(-state => "normal");
+    $update->configure(-state => "normal");
+    $server_textbox->configure(-state => "normal");
+    &do_error("Connection errors occurred. This is usually caused by a bug in Windows 8/8.1 that affects the TAP-Win32 driver. If the problem persists, go to https://openvpn.net/index.php/open-source/downloads.html and download/install the latest TAP-windows installer, then run this program again.");
+   }
+   else {
+    step_pbar();
+    $statusvar = "Connected.";
+    $balloon_msg = "Connected to the cryptostorm darknet.";
+    $cancel->configure(-text => "Disconnect");
+    &hidewin;
+   }
   }
  }
 }
