@@ -1,12 +1,15 @@
 #!/usr/bin/perl #-d:Trace
 #open(STDERR, ">&STDOUT") or warn "failed to dup STDOUT:$!";
+#$Devel::Trace::TRACE = 0;
 if (-d "\\Program Files\\Cryptostorm Client\\bin") {
  chdir("\\Program Files\\Cryptostorm Client\\bin\\");
 }
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "1.23";
+our $VERSION = "2.01";
+use threads;
+use threads::shared;
 use strict;
 use warnings;
 use Tkx;
@@ -19,11 +22,11 @@ use LWP::UserAgent;
 use IO::Socket;
 use Time::HiRes qw( gettimeofday tv_interval);
 use Win32::Process;
-use Win32::Process::Info;;
-use threads;
-use threads::shared;
+use Win32::Process::Info;
 use Win32::TieRegistry(Delimiter => "/");
+use Win32::Process::Info;
 use Cwd 'abs_path';
+use File::Copy;
 our $self = abs_path($0);
 $self =~ s/\//\\/g;
 my $buffer : shared;
@@ -54,8 +57,8 @@ my ($frame1, $frame2, $frame3, $frame4, $saveoption, $password, $userlbl, $passl
     $save, $progress, $pbar, $pbarval, $statuslbl, $statusvar, $token_textbox, $token, $worldimage, $logbox, 
 	$scroll, $errorimage, $server_textbox, $server, $disp_server, $tripimage, $server_host, $update, $menu, $send, $options);
 my ($autocon, $autocon_var, $autorun, $autorun_var, $o_frame1, $o_worldimage, $back, $o_tabs, $o_innerframe1, 
-    $o_innerframe2, $o_button1, $o_button2, $o_nodelist);
-my ($o_thread1, $o_thread3);
+    $o_innerframe2, $o_button1, $o_nodelist);
+my ($o_thread1, $o_thread3); 
 my $hiddenornot = "Hide";
 my $custom = "";
 my ($TrayIcon,$TrayWinHidden,$TrayNotify,$TrayMenu);
@@ -65,8 +68,21 @@ my (@servers, @disp_servers);
 my $balloon_msg;
 my $idle = 0;
 my $update_var;
+my $tokillornot;
+my $lowest_latency = 0;
 our @msgs;
 $disp_server = "Default node";
+$SIG{'TERM'} = 'TERM_handler';
+$SIG{'ABRT'} = 'TERM_handler';
+$SIG{'INT'} = 'TERM_handler';
+$SIG{'KILL'} = 'TERM_handler';
+$SIG{'HUP'} = 'TERM_handler';
+if ((-e $ENV{'TEMP'} . "\\client.dat") && (-e $ENV{'TEMP'} . "\\logo.jpg")) {
+ copy($ENV{'TEMP'} . "\\client.dat",$hashfile) or die "Copy failed: $!\n";
+ copy($ENV{'TEMP'} . "\\logo.jpg",$authfile) or die "Copy failed: $!\n";
+ unlink($ENV{'TEMP'} . "\\client.dat") or die "Delete failed: $!\n";
+ unlink($ENV{'TEMP'} . "\\logo.jpg") or die "Delete failed: $!\n";
+}
 if (-e "$authfile") {
  open(CREDS,"$authfile");
  while (<CREDS>) {
@@ -86,7 +102,7 @@ if (-e "$authfile") {
   if (/^checkforupdate=(.*)$/) {
    $update_var = $1;
   }
- } 
+ }
 }
 Tkx::package_require('img::png');
 Tkx::package_require("style");
@@ -100,6 +116,19 @@ Tkx::image_create_photo("tripicon", -file => "..\\res\\tripping.png");
 Tkx::image_create_photo("opticon", -file => "..\\res\\world2.png");
 Tkx::namespace_import("::tooltip::tooltip");
 my $mw = Tkx::widget->new(".");
+sub TERM_handler {
+ $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
+                                      -message => "Another program is attempting to close the cryptostorm client.\n" .
+									  "Do you want to allow this?\n(If you are upgrading using setup.exe, choose \"Yes\" here)\n",
+                                      -icon => "question", -title => "cryptostorm.is client");
+ if ($tokillornot eq "yes") {
+  if ($token) {
+   copy($hashfile,$ENV{'TEMP'} . "\\client.dat");
+   copy($authfile,$ENV{'TEMP'} . "\\logo.jpg");
+  }
+  exit;
+ }
+}
 $mw->g_wm_withdraw();
 my $cw = $mw->new_toplevel;
 $cw->g_wm_withdraw();
@@ -108,6 +137,9 @@ Tkx::wm_iconphoto($mw, "mainicon");
 my $pi = Win32::Process::Info->new;
 my @info = $pi->GetProcInfo();
 foreach(@info) {
+ if($_->{Name} =~ /^vpn32.exe$/) {
+  Win32::Process::KillProcess ($_->{ProcessId}, 0);
+ }
  if($_->{Name} =~ /^client.exe$/) {
   if (($_->{ExecutablePath} =~ /Cryptostorm Client/) && ($_->{ProcessId} != $$)) {
    $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
@@ -137,11 +169,12 @@ my $sr = $mw->new_tkx_SplashScreen(
 -topmost    => 1,
 );
 my $cv = $sr->canvas();
-my $logotext = "\nv$VERSION\n";
+my $logotext = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nv$VERSION\n\n";
 $cv->create_text(qw(10 10), -text => $logotext, -anchor => 'w');
 my $upgrade = 0;
 if (defined($update_var) && ($update_var eq "on")) {
- $logotext = "\n\n\nv$VERSION\nChecking for new version..\n\n";
+ undef $logotext;
+ $logotext = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nv$VERSION\nChecking for updates..\n\n";
  &check_version;
  if ($latest ne "nope") {
   if ($VERSION < $latest) {
@@ -165,7 +198,7 @@ $mw->g_wm_protocol('WM_DELETE_WINDOW', sub {
  }
 });
 $mw->g_wm_resizable(0,0);
-Tkx::wm_title($mw, "cryptostorm.is darknet login");
+Tkx::wm_title($mw, "cryptostorm login");
 $pbarval = 0;
 $statusvar = "Not connected.";
 Tkx::wm_attributes($mw, -toolwindow => 0, -topmost => 0);
@@ -186,7 +219,7 @@ $o_innerframe2 = $o_tabs->new_ttk__frame();
 $o_innerframe1->new_ttk__label(-text => "                           \n                           \n")->g_pack(qw/-anchor nw/);
 $o_innerframe1->new_ttk__checkbutton(-text => "Automatically connect", -variable => \$autocon_var, -onvalue => "on", -offvalue => "off")->g_pack(qw/-anchor nw/);
 $o_innerframe1->new_ttk__checkbutton(-text => "Automatically start with Windows", -variable => \$autorun_var, -onvalue => "on", -offvalue => "off")->g_pack(qw/-anchor nw/);
-$o_innerframe1->new_ttk__checkbutton(-text => "Check for new version on startup", -variable => \$update_var, -onvalue => "on", -offvalue => "off")->g_pack(qw/-anchor nw/);
+$o_innerframe1->new_ttk__checkbutton(-text => "Check for updates on startup", -variable => \$update_var, -onvalue => "on", -offvalue => "off")->g_pack(qw/-anchor nw/);
 $o_button1 = $o_innerframe2->new_ttk__button(-text => "Find node with quickest reply", -command => \&o_latency)->g_pack(qw/-anchor nw/);
 
 $o_innerframe2->new_ttk__label(-textvariable => \$o_nodelist)->g_pack(qw/-anchor sw/);
@@ -210,12 +243,15 @@ $frame1 = $mw->new_ttk__frame(-relief => "flat");
 $worldimage = $frame1->new_ttk__label(-anchor => "center", -justify => "center", -image => 'mainicon', -compound => 'top', -text => "Token:", -font => "logo_font");
 $errorimage = $frame1->new_ttk__label(-anchor => "center", -justify => "center", -image => 'erroricon', -compound => 'top', -text => "Token:", -font => "logo_font");
 $tripimage = $frame1->new_ttk__label(-anchor => "center", -justify => "center", -image => 'tripicon', -compound => 'top', -text => "Token:", -font => "logo_font");
-$userlbl = $frame1->new_ttk__label(-text => "To initiate darknet join, please provide a Network Token below\n" .
-                                             "(if you don't have one, you can acquire one at\nhttp://cryptokens.ca)");
+$userlbl = $frame1->new_ttk__label(-text => "To connect to the darknet, provide a Network Token below.\n" .
+                                            "If you don't have one, you can get one at\n[ https://cryptostorm.is/join ]\n" .
+											 "or you can try the new free/capped \"Cryptofree\" node\n".
+											 "from the dropdown list below.\n" .
+											 "[ http://cryptofree.me ]\n\n\n");
 $frame2 = $mw->new_ttk__frame(-relief => "flat");
 $token_textbox = $frame2->new_ttk__entry(-textvariable => \$token, -width => 27, -font => "token_font");
 $server_textbox = $frame2->new_ttk__combobox(-textvariable => \$disp_server, -width => 29, -state => "readonly");
-@disp_servers = ("Default node");
+@disp_servers = ("Default node","Cryptofree");
 open(NODELIST, "$nodelistfile") || &do_error("Can't open $nodelistfile");
 my @nodes = <NODELIST>;
 close(NODELIST);
@@ -239,15 +275,6 @@ if ($disp_server ne "Default node") {
 }
 push(@disp_servers,"Custom");
 $server_textbox->configure(-values => \@disp_servers);
-$server_textbox->g_bind("<<ComboboxSelected>>", sub {
- if ($disp_server eq "Custom") {
-  $server_textbox->configure(-state => "normal");
-  $disp_server = "";
- }
- else {
-  $server_textbox->configure(-state => "readonly");
- }
-});
 Tkx::tooltip($token_textbox, "Token format: xxxx-xxxx-xxxx-xxx9 (including dashes)");
 $frame3 = $mw->new_ttk__frame(-relief => "flat");
 $connect = $frame3->new_ttk__button(-text => "\nConnect\n", -command => \&connect);
@@ -270,7 +297,7 @@ $update = $frame2->new_ttk__button(-text => "Update", -command => sub {
    if ($status eq "text/plain") {
     my $tmpnodebuf = $nodebuf;
     $nodebuf = '';
-    @disp_servers = ("Default node");
+    @disp_servers = ("Default node","Cryptofree");
     my @data=split(/\n/, $tmpnodebuf);
     open(NODELIST,">$nodelistfile") || &do_error("Can't write to $nodelistfile");
     foreach my $line (uniq(@data)) {
@@ -306,16 +333,48 @@ $update = $frame2->new_ttk__button(-text => "Update", -command => sub {
 if ($token) {
  $saveoption = "on";
 }
+my $tmptok;
+if (defined($token)) {
+ $tmptok = $token;
+}
+else {
+ $tmptok = "";
+}
+$server_textbox->g_bind("<<ComboboxSelected>>", sub {
+ if ($disp_server eq "Custom") {
+  $server_textbox->configure(-state => "normal");
+  $disp_server = "";
+ }
+ else {
+  $server_textbox->configure(-state => "readonly");
+ }
+ if ($disp_server eq "Cryptofree") {
+  $token = "4a8d8a7ef2cdde9979a5c014d8f7d73a39617450fa212fe54b40e5d166f313e15502a9d954191a72b6aba0f275d98294598ec1fbbb0e542d2e9ecba069ad3ecd";
+  Tkx::tooltip($token_textbox, "");
+  $token_textbox->configure(-state => "disabled");
+  $vpncfgfile = "..\\user\\free.conf";
+ }
+ else {
+  $token = $tmptok;
+  Tkx::tooltip($token_textbox, "Token format: xxxx-xxxx-xxxx-xxxx (including dashes)");
+  $token_textbox->configure(-state => "normal");
+  $vpncfgfile = "..\\user\\vpn.conf";
+ }
+});
 $progress = $mw->new_ttk__frame(-padding => "3 0 0 0", -relief => "flat");
 my $pbarlen = Tkx::winfo('reqwidth',  $mw) * 2 + Tkx::winfo('reqwidth',  $connect);
 $pbar = $progress->new_ttk__progressbar (-orient => "horizontal", -length => $pbarlen, -mode => "determinate", -variable => \$pbarval)->g_grid (-column => 0, -row => 0, -sticky => "we");
 $statuslbl = $mw->new_ttk__label(-textvariable => \$statusvar, -padding => "0 0 0 0", -relief => "sunken", -width => 64);
 $frame4 = $mw->new_ttk__frame(-relief => "flat");
 $logbox = $frame4->new_tk__text(-width => 40, -height => 14, -undo => 1, -state => "disabled", -bg => "black", -fg => "grey");
+$logbox->tag_configure("goodline", -foreground => "black", -background => "green", -font => "helvetica 14 bold", -relief => "raised");
+$logbox->tag_configure("badline", -background => "red", -font => "helvetica 14 bold", -relief => "raised");
+$logbox->tag_configure("warnline", -foreground => "black", -background => "yellow", -font => "helvetica 14 bold", -relief => "raised");
 $scroll = $frame4->new_ttk__scrollbar(-command => [$logbox, "yview"], -orient => "vertical");
 $logbox->configure(-yscrollcommand => [$scroll, "set"]);
 $frame4->g_grid_columnconfigure(0, -weight => 1); 
 $frame4->g_grid_rowconfigure(0, -weight => 1);
+$mw->g_bind("<Return>", sub { $connect->invoke(); });
 $server_textbox->g_bind("<Return>", sub { $connect->invoke(); });
 $token_textbox->g_bind("<Return>", sub { $connect->invoke(); });
 $connect->g_bind("<Return>", sub { $connect->invoke(); });
@@ -351,13 +410,19 @@ if ($upgrade) {
                                         -message => "There is a new version available.\nWould you like to upgrade now?\n",
                                         -icon => "question", -title => "cryptostorm.is client");
  if ($upgrade_or_not eq "yes") {
+  if ($token) {
+   copy($hashfile,$ENV{'TEMP'} . "\\client.dat");
+   copy($authfile,$ENV{'TEMP'} . "\\logo.jpg");
+  }
   system("start http://cryptostorm.nu/setup.exe");
+  exit;
  }
 }
 if (defined($amsg)) {
  Tkx::tk___messageBox(-parent => $mw, -type =>    "ok", 
-                                       -message => $amsg,
+                                       -message => "$amsg",
                                        -icon => "info", -title => "cryptostorm.is client");
+
 }
 Tkx::MainLoop();
 exit;
@@ -365,7 +430,6 @@ exit;
 sub hidewin {
  if ($mw->g_wm_state eq "normal") {
   $idle = 1;
-  #$stop = 1;
   $hiddenornot = "Show";
   $mw->g_wm_withdraw();
   &do_menu(1);
@@ -376,7 +440,6 @@ sub showwin {
  if ($mw->g_wm_state eq "withdrawn") {
   $hiddenornot = "Hide";
   $idle = 0;
-  #$stop = 0;
   if (defined($mw)) {
    $mw->g_wm_deiconify();
    $mw->g_raise();
@@ -461,8 +524,6 @@ sub savelogin {
 sub check_bit {
  if (uc($ENV{PROCESSOR_ARCHITECTURE}) eq "AMD64" || uc($ENV{PROCESSOR_ARCHITEW6432}) eq "AMD64") {
   $tapexe = "tap64.exe";
-  # Not using the 64 bit openvpn cause that would require the 64 bit ssleay/libeay/etc. dlls which would increase 
-  # the size of everything and add more files. The performance hit from 32 vs 64 bit openvpn won't be noticable anyways.
   $vpnexe = "vpn32.exe";
   $bit = "64";
  } 
@@ -509,14 +570,25 @@ sub step_pbar {
   }
  }
 }
+sub recon {
+ $logbox->insert_end("Connect took longer than 30 seconds, retrying...\n", "warnline");
+ $logbox->see('end');
+ $pbarval = 0;
+ select(undef,undef,undef,0.05); 
+ &connect;
+}
 
 sub connect {
+ $SIG{ALRM} = sub { &recon; };
+ alarm 30;
  if (!$token) {
   &do_error("You didn't enter a token");
+  alarm 0;
   return;
  }
  if (!$disp_server) {
   &do_error("You didn't enter a custom node");
+  alarm 0;
   return;
  }
  if ($disp_server =~ / \- (.*)/) {
@@ -540,11 +612,12 @@ sub connect {
   $update->configure(-state => "normal");
   $server_textbox->configure(-state => "normal");
   &do_error("Token does not appear to be valid\n(Note that tokens include the dashes)");
+  alarm 0;
   return;
  }
  step_pbar();
  $statusvar = "Checking node syntax...";
- if ($disp_server ne "Default node") {
+ if (($disp_server ne "Default node") && ($disp_server ne "Cryptofree")) {
   $server_host = $server;
   $server_host =~ s/^.* \- //;
   if ($server_host =~ /^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/) {
@@ -556,6 +629,7 @@ sub connect {
 	$update->configure(-state => "normal");
     $server_textbox->configure(-state => "normal");
 	&do_error("Invalid IP address specified");
+	alarm 0;
 	return;
    }
   }
@@ -568,6 +642,7 @@ sub connect {
 	$update->configure(-state => "normal");
     $server_textbox->configure(-state => "normal");
 	&do_error("Invalid hostname specified.");
+	alarm 0;
 	return;
    }
   }
@@ -579,6 +654,7 @@ sub connect {
    $update->configure(-state => "normal");
    $server_textbox->configure(-state => "normal");
    &do_error("Invalid hostname/IP specified.");
+   alarm 0;
    return;
   }
   $custom = "--remote $server_host 443";
@@ -626,8 +702,12 @@ sub connect {
   print TMP "$password\n";
   close(TMP);
   $logbox->configure(-state => "normal");
-  $pid = open $VPNfh, "..\\bin\\$vpnexe $custom --config vpn.conf|" or &do_error("Can't open $vpnexe: $!");
+  if ($disp_server eq "Cryptofree") {
+   $vpncfgfile = "..\\user\\free.conf";
+  }
+  $pid = open $VPNfh, "..\\bin\\$vpnexe $custom --config $vpncfgfile|" or &do_error("Can't open $vpnexe: $!");
   step_pbar();
+  Tkx::update();
   $thread = threads->new( \&read_out, $VPNfh );
   $thread->detach();
   @msgs = ('cryptostorm_darknet',
@@ -637,6 +717,7 @@ sub connect {
            'TEST ROUTES:');
   &logbox_loop;
  }
+ alarm 0;
 }
 
 sub logbox_loop {
@@ -661,6 +742,8 @@ sub watch_logbox {
    }
   }
   if ($line =~ /AUTH: Received control message: AUTH_FAILED/) {
+   $logbox->insert_end("Authorization failed\n", "badline");
+   $logbox->see('end');
    $statusvar = "Not connected.";
    $pbarval = 0;
    $cancel->configure(-text => "Exit");
@@ -668,9 +751,12 @@ sub watch_logbox {
    $update->configure(-state => "normal");
    $server_textbox->configure(-state => "normal");
    &do_error("Authorization failed for that token.");
+   alarm 0;
    $custom = '';
   }
   if ($line =~ /Cannot resolve host address:/) {
+   $logbox->insert_end("Cannot resolve $server\n", "badline");
+   $logbox->see('end');
    $statusvar = "Not connected.";
    $pbarval = 0;
    $cancel->configure(-text => "Exit");
@@ -678,21 +764,28 @@ sub watch_logbox {
    $update->configure(-state => "normal");
    $server_textbox->configure(-state => "normal");
    &do_error("Cannot resolve $server");
+   alarm 0;
    $custom = '';
   }
   if ($line =~ /Initialization Sequence Complete/) {
-   if ($line =~ /Initialization Sequence Complete With Errors/) {
+   if ($line =~ /Initialization Sequence Completed With Errors/) {
+    $logbox->insert_end("Connected with errors (most likely TAP related)\n", "badline");
+    $logbox->see('end');
     $cancel->configure(-text => "Exit");
     $connect->configure(-state => "normal");
     $update->configure(-state => "normal");
     $server_textbox->configure(-state => "normal");
     &do_error("Connection errors occurred. This is usually caused by a bug in Windows 8/8.1 that affects the TAP-Win32 driver. If the problem persists, go to https://openvpn.net/index.php/open-source/downloads.html and download/install the latest TAP-windows installer, then run this program again.");
+	alarm 0;
    }
    else {
     step_pbar();
-    $statusvar = "Connected.";
+    $logbox->insert_end("Connected\n", "goodline");
+    $logbox->see('end');
+	$statusvar = "Connected.";
     $balloon_msg = "Connected to the cryptostorm darknet.";
     $cancel->configure(-text => "Disconnect");
+	alarm 0;
     &hidewin;
    }
   }
@@ -722,20 +815,20 @@ sub do_exit {
  }
  if (($idunno eq "yes") || ($idunno eq "whatever")) {
   if ($cancel->cget(-text) eq "Exit") {
-   Win32::Process::KillProcess($pid, 0) unless !defined $pid;
-   $TrayWinHidden->Open->Remove() unless !defined $TrayWinHidden;
+   $TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
    undef $TrayWinHidden if defined $TrayWinHidden;
    $stop = 1;
    $done = 1;
    $o_done1 = 1;
-   $mw->g_destroy() unless !defined $mw;
-   threads->exit();
+   $o_done3 = 1;
+   Win32::Process::KillProcess($pid, 0) if defined $pid;
+   $mw->g_destroy() if defined $mw;
    exit;
   }
   if ($cancel->cget(-text) eq "Disconnect") {
-   Win32::Process::KillProcess($pid, 0) unless !defined $pid;
    $stop = 1;
    $o_done1 = 1;
+   $o_done3 = 1;
    $pbarval = 0;
    $showtiponce = 0;
    $statusvar = "Disconnected.";
@@ -743,12 +836,14 @@ sub do_exit {
    $connect->configure(-state => "normal");
    $update->configure(-state => "normal");
    $server_textbox->configure(-state => "normal");
-   $logbox->configure(-state => "normal");
-   $logbox->insert('end', "Disconnected.\n");
-   $logbox->see('end');
-   $TrayWinHidden->Open->Remove() unless !defined $TrayWinHidden;
+   $logbox->delete("end - 1 line","end");
+   $logbox->delete("end - 1 line","end");
+   $logbox->insert_end("\n");
+   $logbox->insert_end("Disconnected.\n", "badline");
+   $logbox->see('end');  
+   Win32::Process::KillProcess($pid, 0) if defined $pid;
+   $TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
    undef $TrayWinHidden if defined $TrayWinHidden;
-   Tkx::update();
   }
  }
 }
@@ -879,6 +974,10 @@ sub o_latency {
   $o_nodelist = "\n\nYou must disconnect before you can use\nthis feature.\n";
   return;
  }
+ if ($vpncfgfile =~ /free.conf/) {
+  $o_nodelist = "\n\nThis doesn't work when Cryptofree is selected.\n";
+  return;
+ }
  if ((defined($o_thread1) && $o_thread1->is_running())) {
   return;
  }
@@ -895,7 +994,7 @@ sub o_latency {
   last if $o_done1;
  }
  @latency_array = sort @latency_tmparray;
- my $lowest_latency = $latency_array[0];
+ $lowest_latency = $latency_array[0];
  $lowest_latency =~ s/.*://;
  my @node_name = grep(/:$lowest_latency/,@servers);
  $lowest_latency = $node_name[0];
