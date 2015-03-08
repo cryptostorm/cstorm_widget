@@ -12,7 +12,7 @@ $i[0] = "Copy failed: ";
 $i[1] = "Delete failed: ";
 $i[2] = "Another program is attempting to close the cryptostorm client.\nDo you want to allow this?\n(If you are upgrading using setup.exe, choose \"Yes\" here)\n";
 $i[3] = "Connected";
-$i[4] = "Not connected.";
+$i[4] = "Not connected";
 $i[5] = "Options";
 $i[6] = "Back";
 $i[7] = "Automatically connect";
@@ -80,7 +80,9 @@ $i[63] = "Port needs to be a number between 1 and 655334";
 $i[64] = "Authorization failed for that token.";
 $i[65] = "Global random";
 $i[66] = "Only one instance of this program can be ran at a time.\nWould you like to close the other instance?\n";
-our $VERSION = "2.2";
+$i[67] = "Running DNS leak prevention...\n";
+$i[68] = "Disable splash image on startup.";
+our $VERSION = "2.22";
 use threads;
 use threads::shared;
 use strict;
@@ -102,6 +104,7 @@ use Cwd 'abs_path';
 use File::Copy;
 our $self = abs_path($0);
 $self =~ s/\//\\/g;
+our $dns_line_from_openvpn;
 my $buffer : shared;
 my $stop : shared;
 my $done : shared;
@@ -114,10 +117,12 @@ my $latest : shared;
 my $amsg : shared;
 my @latency_tmparray : shared;
 my @latency_array : shared;
+our @words;
+our @dns_ips;
+our @recover;
 my $authfile = "..\\user\\logo.jpg";
 my $hashfile = "..\\user\\client.dat";
 my $vpncfgfile = "..\\user\\custom.conf";
-my $leaky = "";
 our $whichvpn = "";
 my $cacertfile = "..\\user\\ca.crt";
 my $cclientfile = "..\\user\\client.crt";
@@ -133,11 +138,13 @@ my ($frame1, $frame2, $frame3, $frame4, $saveoption, $password, $userlbl, $passl
 my ($autocon, $autocon_var, $autorun, $autorun_var, $o_frame1, $o_worldimage, $back, $o_tabs, $o_innerframe1, 
     $o_innerframe2, $o_innerframe3);
 my ($o_thread3); 
+my $autosplash_var;
 my $hiddenornot = $i[31];
 my ($TrayIcon,$TrayWinHidden,$TrayNotify,$TrayMenu);
 my $showtiponce = 0;
 my ($x, $y, $width, $height);
 our (@servers, @disp_servers);
+my $upgrade = 0;
 my $balloon_msg;
 my $idle = 0;
 my $update_var;
@@ -193,6 +200,9 @@ if (-e "$authfile") {
   if (/^autocon=(.*)$/) {
    $autocon_var = $1;
   }
+  if (/^autosplash=(.*)$/) {
+   $autosplash_var = $1;
+  }
   if (/^autorun=(.*)$/) {
    $autorun_var = $1;
   }
@@ -213,6 +223,7 @@ Tkx::image_create_photo("tripicon", -file => "..\\res\\tripping.png");
 Tkx::image_create_photo("opticon", -file => "..\\res\\world2.png");
 Tkx::namespace_import("::tooltip::tooltip");
 my $mw = Tkx::widget->new(".");
+$mw->g_wm_withdraw();
 sub TERM_handler {
  $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
                                       -message => "$i[2]",
@@ -225,7 +236,6 @@ sub TERM_handler {
   exit;
  }
 }
-$mw->g_wm_withdraw();
 my $cw = $mw->new_toplevel;
 $cw->g_wm_withdraw();
 Tkx::tk(appname => "cryptostorm.is darknet client");
@@ -257,32 +267,47 @@ foreach(@info) {
   }
  }
 }
-
-my $sr = $mw->new_tkx_SplashScreen(
--image      => Tkx::image_create_photo(-file => "..\\res\\splash.png"),
--width      => 'auto',
--height     => 'auto',
--show       => 1,
--topmost    => 1,
-);
-my $cv = $sr->canvas();
-$cv->create_text(qw(10 10), -anchor => 'w');
-my $upgrade = 0;
-if (defined($update_var) && ($update_var eq "on")) {
- &check_version;
- if ($latest ne "nope") {
-  if ($VERSION < $latest) {
-   $upgrade = 1;
+if ($autosplash_var eq "on") {
+ $upgrade = 0;
+ if (defined($update_var) && ($update_var eq "on")) {
+  &check_version;
+  if ($latest ne "nope") {
+   if ($VERSION < $latest) {
+    $upgrade = 1;
+   }
   }
  }
-}
-$cv->create_text(qw(10 10), -anchor => 'w');
-Tkx::after(3000 => sub {
- $sr->g_destroy();
  $mw->g_wm_deiconify();
  $mw->g_raise();
  $mw->g_focus();
-});
+}
+else {
+ my $sr = $mw->new_tkx_SplashScreen(
+ -image      => Tkx::image_create_photo(-file => "..\\res\\splash.png"),
+ -width      => 'auto',
+ -height     => 'auto',
+ -show       => 1,
+ -topmost    => 1,
+ );
+ my $cv = $sr->canvas();
+ $cv->create_text(qw(10 10), -anchor => 'w');
+ $upgrade = 0;
+ if (defined($update_var) && ($update_var eq "on")) {
+  &check_version;
+  if ($latest ne "nope") {
+   if ($VERSION < $latest) {
+    $upgrade = 1;
+   }
+  }
+ }
+ $cv->create_text(qw(10 10), -anchor => 'w');
+ Tkx::after(3000 => sub {
+  $sr->g_destroy();
+  $mw->g_wm_deiconify();
+  $mw->g_raise();
+  $mw->g_focus();
+ });
+}
 $mw->g_wm_protocol('WM_DELETE_WINDOW', sub { 
  if ($statusvar =~ /$i[3]/) { 
   &hidewin;
@@ -312,6 +337,8 @@ $o_innerframe2 = $o_tabs->new_ttk__frame();
 $o_innerframe3 = $o_tabs->new_ttk__frame();
 
 $o_innerframe1->new_ttk__label(-text => "                           \n                           \n")->g_pack(qw/-anchor nw/);
+$o_innerframe1->new_ttk__checkbutton(-text => "$i[68]", -variable => \$autosplash_var, -onvalue => "on", -offvalue => "off")->g_pack
+(qw/-anchor nw/);
 $o_innerframe1->new_ttk__checkbutton(-text => "$i[7]", -variable => \$autocon_var, -onvalue => "on", -offvalue => "off")->g_pack(qw/-anchor nw/);
 $o_innerframe1->new_ttk__checkbutton(-text => "$i[8]", -variable => \$autorun_var, -onvalue => "on", -offvalue => "off")->g_pack(qw/-anchor nw/);
 $o_innerframe1->new_ttk__checkbutton(-text => "$i[9]", -variable => \$update_var, -onvalue => "on", -offvalue => "off")->g_pack(qw/-anchor nw/);
@@ -612,6 +639,9 @@ sub savelogin {
  if ($autocon_var =~ /(on|off)/) {
   print CREDS "autocon=$1\n";
  }
+ if ($autosplash_var =~ /(on|off)/) {
+  print CREDS "autosplash=$1\n";
+ }
  if ($autorun_var =~ /(on|off)/) {
   print CREDS "autorun=$1\n";
  }
@@ -789,12 +819,6 @@ sub connect {
   else {
    $whichvpn = "paid";
   }
-  if ($noleak_var eq "on") {
-   $leaky = "--script-security 2 --up \"up.bat\" --down \"down.bat\"";
-  }
-  if ($noleak_var eq "off") {
-   $leaky = "";
-  }
   if ($nostun_var eq "on") {
    $statusvar = "$i[42]";
    Tkx::update();
@@ -814,35 +838,35 @@ sub connect {
   undef $vpn_args;
   if ($whichvpn eq "free") {
    if ($proto_var eq "UDP") {
-    $vpn_args = "--client --dev tun --proto udp --remote windows-cryptofree1-a.cstorm.pw $port_var --remote windows-cryptofree1-a.cryptostorm.net $port_var --remote windows-cryptofree1-a.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 $leaky";
+    $vpn_args = "--client --dev tun --proto udp --remote windows-cryptofree1-a.cstorm.pw $port_var --remote windows-cryptofree1-a.cryptostorm.net $port_var --remote windows-cryptofree1-a.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
    }
    if ($proto_var eq "TCP") {
-    $vpn_args = "--client --dev tun --proto tcp --remote windows-cryptofree1-a.cstorm.pw $port_var --remote windows-cryptofree1-a.cryptostorm.net $port_var --remote windows-cryptofree1-a.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 $leaky";
+    $vpn_args = "--client --dev tun --proto tcp --remote windows-cryptofree1-a.cstorm.pw $port_var --remote windows-cryptofree1-a.cryptostorm.net $port_var --remote windows-cryptofree1-a.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
    }
   }
   if ($whichvpn eq "paid") {
    if ($proto_var eq "UDP") {
     if ($server eq "$i[65]") {
-     $vpn_args = "--client --dev tun --proto udp --remote windows-balancer.cstorm.pw $port_var --remote windows-balancer.cryptostorm.net $port_var --remote windows-balancer.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 $leaky";
+     $vpn_args = "--client --dev tun --proto udp --remote windows-balancer.cstorm.pw $port_var --remote windows-balancer.cryptostorm.net $port_var --remote windows-balancer.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
 	}
 	else {
 	 my @tmparray = grep(/$server/,@servers);
 	 my $tmpline = $tmparray[0];
 	 $tmpline =~ s/.*://;
 	 $tmpline =~ s/\.cstorm\.pw//;
-	 $vpn_args = "--client --dev tun --proto udp --remote $tmpline.cstorm.pw $port_var --remote $tmpline.cryptostorm.net $port_var --remote $tmpline.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 $leaky";
+	 $vpn_args = "--client --dev tun --proto udp --remote $tmpline.cstorm.pw $port_var --remote $tmpline.cryptostorm.net $port_var --remote $tmpline.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
 	}
    }
    if ($proto_var eq "TCP") {
     if ($server eq "$i[65]") {
-     $vpn_args = "--client --dev tun --proto tcp --remote windows-balancer.cstorm.pw $port_var --remote windows-balancer.cryptostorm.net $port_var --remote windows-balancer.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 $leaky";
+     $vpn_args = "--client --dev tun --proto tcp --remote windows-balancer.cstorm.pw $port_var --remote windows-balancer.cryptostorm.net $port_var --remote windows-balancer.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
 	}
 	else {
 	 my @tmparray = grep(/$server/,@servers);
 	 my $tmpline = $tmparray[0];
 	 $tmpline =~ s/.*://;
 	 $tmpline =~ s/\.cstorm\.pw//;
-	 $vpn_args = "--client --dev tun --proto tcp --remote $tmpline.cstorm.pw $port_var --remote $tmpline.cryptostorm.net $port_var --remote $tmpline.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 $leaky";
+	 $vpn_args = "--client --dev tun --proto tcp --remote $tmpline.cstorm.pw $port_var --remote $tmpline.cryptostorm.net $port_var --remote $tmpline.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
     }
    }
   }
@@ -881,6 +905,9 @@ sub watch_logbox {
    if ($line =~ /$_/) {
     step_pbar();
    }
+   if ($line =~ /dhcp-option DNS/) {
+    $dns_line_from_openvpn = $line;
+   }
   }
   if ($line =~ /AUTH: Received control message: AUTH_FAILED/) {
    $logbox->insert_end("$i[45]", "badline");
@@ -913,7 +940,7 @@ sub watch_logbox {
     $logbox->insert_end("$i[47]", "badline");
     $logbox->see('end');
     $cancel->configure(-text => "$i[22]");
-   $statusvar = $i[4] . ".";
+    $statusvar = $i[4] . ".";
     $connect->configure(-state => "normal");
     $update->configure(-state => "normal");
 	$server_textbox->configure(-state => "readonly");
@@ -929,6 +956,12 @@ sub watch_logbox {
     $balloon_msg = "$i[49]";
     $cancel->configure(-text => "$i[50]");
 	alarm 0;
+	if ($noleak_var eq "on") {
+     $statusvar = "$i[67]";
+     &plugdnsleak;
+	 $statusvar = $i[3] . ".";
+	 Tkx::update();
+    }
     &hidewin;
    }
   }
@@ -966,6 +999,16 @@ sub do_exit {
    $statusvar = "$i[53]";
    Tkx::update();
    system("ipv6_on.bat");
+  }
+  if ($noleak_var eq "on") {
+   for (@recover) {
+	if (/^(.*):DHCP:(.*)$/) {
+	 system(qq(netsh interface ip set dns "$1" dhcp));
+	}
+	if (/^(.*):Static:(.*)$/) {
+	 system(qq(netsh interface ip set dns "$1" static $2));
+	}
+   }
   }
   $statusvar = "$i[54]";
   Tkx::update();
@@ -1170,5 +1213,40 @@ sub check_version_thread {
  }
  else {
   $o_version_buf = "nope";
+ }
+}
+
+sub plugdnsleak {
+ splice(@words);
+ splice(@dns_ips);
+ @words = split(/,/, $dns_line_from_openvpn);
+ for (@words) {
+  if (/^dhcp-option DNS (.*)/) {
+   push(@dns_ips,"$1");
+  }
+ }
+ open(my $fh, '-|', 'netsh interface ipv4 show dnsserv') or die $!;
+ my $current_interface;
+ for (@dns_ips) {
+  my $pushed_dns_ip = $_;
+  chomp($pushed_dns_ip);
+  while (my $line = <$fh>) {
+   if ($line =~ /Configuration for interface "(.*)"/) {
+    $current_interface = $1;
+   }
+   if (($line =~ /DNS servers configured through (DHCP):(.*)/) ||
+       ($line =~ /(Static)ally Configured DNS Servers:(.*)/)) {
+	my $dnstype = $1;
+    my $tmpy = $2;
+	$tmpy =~ s/\s//g;
+	if (($tmpy ne $pushed_dns_ip) && ($tmpy ne "None")) {
+	 push(@recover,"$current_interface:$dnstype:$tmpy");
+	 system 1, qq(netsh interface ip set dns "$current_interface" static $pushed_dns_ip);
+	 for (@dns_ips) {
+	  system 1, (qq(netsh interface ip add dns "$current_interface" addr=$_));
+	 }
+	}
+   }
+  }
  }
 }
