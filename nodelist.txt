@@ -1,4 +1,5 @@
 Paris - France:France:windows:windows-paris.cstorm.pw
+Tokyo - Japan:Japan:windows:windows-tokyo.cstorm.pw
 Montreal - Quebec:Quebec:windows:windows-montreal.cstorm.pw
 Lisbon - Portugal:Portugal:windows:windows-lisbon.cstorm.pw
 Seattle - US_west:USA western:windows:windows-uswest.cstorm.pw
