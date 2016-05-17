@@ -1,12 +1,18 @@
-Paris - France:France:windows:windows-paris.cstorm.pw
-Tokyo - Japan:Japan:windows:windows-tokyo.cstorm.pw
-Montreal - Quebec:Quebec:windows:windows-montreal.cstorm.pw
-Lisbon - Portugal:Portugal:windows:windows-lisbon.cstorm.pw
-Seattle - US_west:USA western:windows:windows-uswest.cstorm.pw
-Kansas City - US_central:USA central:windows:windows-uscentral.cstorm.pw
-Frankfurt - German:Germany:windows:windows-frankfurt.cstorm.pw
-St Petersburg - Russia:Russia:windows:windows-stpetersburg.cstorm.pw
-London - England:England:windows:windows-london.cstorm.pw
-Singapore - citystate:Singapore:windows:windows-singapore.cstorm.pw
-Reykjavik - Iceland:Iceland:windows:windows-lisbon.cstorm.pw
-Deneb - Cygnus:Cygnus:windows:windows-balancer.cstorm.pw
+voodoo - US-Iceland:US-Iceland:windows:voodoo-windows-iceland.cstorm.pw
+voodoo - US-IsleOfMan:US-IsleOfMan:windows:voodoo-windows-isleofman.cstorm.pw
+voodoo - Romania-Russia:Romania-Russia:windows:voodoo-windows-russia.cstorm.pw
+standard - England:UK:windows:windows-england.cstorm.pw
+standard - Norway:NO:windows:windows-norway.cstorm.pw
+standard - South Korea:SK:windows:windows-southkorea.cstorm.pw
+standard - Canada_west:Canadawest:windows:windows-canadawest.cstorm.pw
+standard - US north:US nothern:windows:windows-usnorth.cstorm.pw
+standard - US south:US southern:windows:windows-ussouth.cstorm.pw
+standard - US east:USA eastern:windows:windows-useast.cstorm.pw
+standard - US west:USA western:windows:windows-uswest.cstorm.pw
+standard - US central:USA central:windows:windows-uscentral.cstorm.pw
+standard - Italy:Italy:windows:windows-rome.cstorm.pw
+standard - Portugal:Portugal:windows:windows-lisbon.cstorm.pw
+standard - Switzerland:Switzerland:windows:windows-switzerland.cstorm.pw
+standard - France:France:windows:windows-paris.cstorm.pw
+standard - Germany:Germany:windows:windows-frankfurt.cstorm.pw
+standard - Deneb-Cygnus:Cygnus:windows:windows-balancer.cstorm.pw
