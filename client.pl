@@ -1081,7 +1081,7 @@ sub connect {
     }
    }
   }
-  $pid = open $VPNfh, "..\\bin\\$vpnexe $vpn_args --config $vpncfgfile|" or &do_error("1015: $i[44]");
+  $pid = open $VPNfh, "..\\bin\\$vpnexe $vpn_args --block-outside-dns --config $vpncfgfile|" or &do_error("1015: $i[44]");
   step_pbar();
   Tkx::update();
   $gobblegobble = 1;
