@@ -311,6 +311,15 @@ foreach(@info) {
  }
 }
 
+$verstuff = `..\\bin\\csvpn --version`;
+if ($verstuff =~ /OpenVPN ([0-9\.]+)/) {
+ $ovpnver = $1;
+}
+$verstuff = `..\\bin\\ossl version`;
+if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
+ $osslver = $1;
+} 
+  
 if ($autosplash_var ne "on") {
  my $sr2;
  my $sr = $mw->new_tkx_SplashScreen(
@@ -337,14 +346,6 @@ if ($autosplash_var ne "on") {
   $mw->g_wm_deiconify();
   $mw->g_raise();
   $mw->g_focus();
-  $verstuff = `..\\bin\\csvpn --version`;
-  if ($verstuff =~ /OpenVPN ([0-9\.]+)/) {
-   $ovpnver = $1;
-  }
-  $verstuff = `..\\bin\\ossl version`;
-  if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
-   $osslver = $1;
-  } 
  });
 }
 $mw->g_wm_protocol('WM_DELETE_WINDOW', sub { 
