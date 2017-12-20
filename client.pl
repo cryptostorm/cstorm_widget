@@ -1,15 +1,26 @@
 #!/usr/bin/perl #-d:Trace
 #$Devel::Trace::TRACE = 1;
+#BEGIN {
+# my $trace_file = $ENV{TRACE_FILE} // "mytrace.$$.txt";
+# print STDERR "Saving trace to $trace_file\n";
+# open my $fh, '>>', $trace_file;
+# sub DB::DB {
+#  my ($package, $file, $line ) = caller;
+#  my $code = \@{"::_<$file"};
+#  print $fh "[@{[time]}] $file $line $code->[$line]";
+# }
+#}
 if (-d "\\Program Files\\Cryptostorm Client\\bin") {
  chdir("\\Program Files\\Cryptostorm Client\\bin\\");
 }
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our ($ovpnver, $osslver, $replaceossl, $replaceovpn, $verstuff, $final_data, $counter, $gobblegobble);
+our ($ovpnver, $osslver, $replaceossl, $replaceovpn, $verstuff, $final_data, $counter, $gobblegobble, $manport);
 our @animation = qw( \ | / -- );
 our @i;
 our @output;
+my $timeout_var = 60;
 $i[0] = "Copy failed: ";
 $i[1] = "Delete failed: ";
 $i[2] = "Another program is attempting to close the cryptostorm client.\nDo you want to allow this?\n(If you are upgrading using setup.exe, choose \"Yes\" here)\n";
@@ -29,7 +40,7 @@ $i[15] = "Security";
 $i[16] = "Disable IPv6";
 $i[17] = "DNS leak prevention";
 $i[18] = "STUN/WebRTC leak prevention";
-$i[20] = "Token format: xxxx-xxxx-xxxx-xxx9 (including dashes)";
+$i[20] = "Token format: xxxx-xxxx-xxxx-xxxx (including dashes)";
 $i[21] = "\nConnect\n";
 $i[22] = "Exit";
 $i[23] = "Save?";
@@ -42,7 +53,7 @@ $i[29] = "There is a new version available.\nWould you like to upgrade now?\n";
 $i[30] = "Show";
 $i[31] = "Hide";
 $i[32] = "Creating Menu failed";
-$i[33] = "Connect took longer than 60 seconds, retrying...\n";
+$i[33] = "Connect took longer than $timeout_var seconds, retrying...\n";
 $i[34] = "You didn't enter a token";
 $i[35] = "Checking token syntax...";
 $i[36] = "Token does not appear to be valid\n(Note that tokens include the dashes)";
@@ -78,7 +89,6 @@ $i[65] = "Global random";
 $i[66] = "Only one instance of this program can be ran at a time.\nWould you like to close the other instance?\n";
 $i[67] = "Running DNS leak prevention...";
 $i[68] = "Disable splash image on startup.";
-our $VERSION = "3.00";
 use threads;
 use threads::shared;
 use strict;
@@ -88,6 +98,8 @@ use Fcntl;
 use Tie::File;
 #$Tkx::TRACE=64;
 use Tkx::SplashScreen;
+use Win32::Console qw( CTRL_C_EVENT );
+use Win32;
 use Win32::GUI();
 # https://msdn.microsoft.com/en-us/library/windows/desktop/aa373247%28v=vs.85%29.aspx
 use constant WM_POWERBROADCAST => 0x218;
@@ -102,7 +114,7 @@ use HTTP::Request::Common qw(GET POST);
 use LWP::UserAgent;
 use Digest::MD5::File qw(file_md5_hex url_md5_hex);
 use IO::Socket;
-
+use Socket;
 use Win32::Process;
 use Win32::Process::Info;
 use Win32::Process::CommandLine;
@@ -111,6 +123,13 @@ use Win32::Process::Info;
 use Win32::AbsPath;
 use File::Copy;
 our $self = Win32::AbsPath::Fix "$0";
+our $VERSION = "3.10";
+our $BUILDVERSION;
+use Win32::File::VersionInfo;
+my $foo = GetFileVersionInfo ( "$self" );
+if ($foo) {
+ $BUILDVERSION = $foo->{FileVersion};
+}
 our $dns_line_from_openvpn;
 our $iwasconnected = 0;
 my $masterpid;
@@ -191,6 +210,9 @@ if (-e "$authfile") {
       (/^([a-f0-9]{128})$/)) {
    $token = $1;
   }
+  if (/^timeout=([0-9]+)$/) {
+   $timeout_var = $1;
+  }
   if (/^nostun=(.*)$/) {
    $nostun_var = $1;
   }
@@ -264,6 +286,15 @@ Tkx::image_create_photo("r6", -file => "..\\res\\r6.png");
 Tkx::namespace_import("::tooltip::tooltip");
 my $mw = Tkx::widget->new(".");
 $mw->g_wm_withdraw();
+if (Win32::IsAdminUser() != 1) {
+ &do_error("This program requires Administrator privileges");
+ exit;
+}
+my ($STRING, $MAJOR, $MINOR, $BUILD, $ID) = Win32::GetOSVersion();
+if ($MAJOR < 6) {
+ &do_error("This program only supports Windows Vista and later");
+ exit;
+}
 sub TERM_handler {
  $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
                                       -message => "$i[2]",
@@ -283,32 +314,30 @@ Tkx::wm_iconphoto($mw, "mainicon");
 my $pi = Win32::Process::Info->new;
 $masterpid = Win32::Process::GetCurrentProcessID();
 my @info = $pi->GetProcInfo();
-my $therecanbeonlytwo = 0;
 foreach(@info) {
- if($_->{Name} =~ /^csvpn.exe$/) {
+ next if $_->{ProcessId} == $masterpid;
+ if ($_->{Name} =~ /^csvpn.exe$/) {
   Win32::Process::KillProcess ($_->{ProcessId}, 0);
  }
- if($_->{Name} =~ /^client.exe$/) {
-  $therecanbeonlytwo++;
-  if ($therecanbeonlytwo > 2) {
-   $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
-                                        -message => "$i[66]",
-                                        -icon => "question", -title => "cryptostorm.is client");
-   if ($tokillornot eq "yes") {
-    Win32::Process::KillProcess ($_->{ProcessId}, 0);
-	$pi = Win32::Process::Info->new;
-    @info = $pi->GetProcInfo();
-	foreach(@info) {
-     if($_->{Name} =~ /^client.exe$/) {
-      Win32::Process::KillProcess ($_->{ProcessId}, 0);
-	 }
-	}
-   }
-   if ($tokillornot eq "no") {
-    exit;
-   }
+ if ($_->{Name} =~ /^client.exe$/) {  
+  $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
+                                      -message => "$i[66]",
+                                      -icon => "question", -title => "cryptostorm.is client");
+  if ($tokillornot eq "yes") {
+   Win32::Process::KillProcess ($_->{ProcessId}, 0);
+  }
+  if ($tokillornot eq "no") {
+   Win32::Process::KillProcess ($masterpid, 0);
   }
  }
+}
+
+if (-e "..\\user\\mydns.txt") {
+ open my $handle, '<', "..\\user\\mydns.txt";
+ chomp(@recover = <$handle>);
+ close $handle;
+ unlink("..\\user\\mydns.txt");
+ &restore_dns;
 }
 
 $verstuff = `..\\bin\\csvpn --version`;
@@ -319,7 +348,7 @@ $verstuff = `..\\bin\\ossl version`;
 if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
  $osslver = $1;
 } 
-  
+
 if ($autosplash_var ne "on") {
  my $sr2;
  my $sr = $mw->new_tkx_SplashScreen(
@@ -371,7 +400,7 @@ Tkx::wm_attributes($cw, -toolwindow => 0, -topmost => 0);
 Tkx::wm_title($cw, "$i[5]");
 Tkx::wm_iconphoto($cw, "mainicon");
 $o_frame1 = $cw->new_ttk__frame(-relief => "flat");
-$o_worldimage = $o_frame1->new_ttk__label(-anchor => "nw", -justify => "center", -image => 'opticon', -compound => 'top', -text => "Widget v$VERSION");
+$o_worldimage = $o_frame1->new_ttk__label(-anchor => "nw", -justify => "center", -image => 'opticon', -compound => 'top', -text => "Widget v$VERSION\nBuild: $BUILDVERSION");
 $back = $o_frame1->new_ttk__button(-text => "$i[6]", -command => \&backtomain);
 $o_tabs = $cw->new_ttk__notebook(-height => 100, -width => 260);
 $o_innerframe1 = $o_tabs->new_ttk__frame();
@@ -396,6 +425,9 @@ $o_innerframe2->new_ttk__label(-text => "$i[10]")->g_pack(qw/-anchor s/);
 my $port_textbox = $o_innerframe2->new_ttk__entry(-textvariable => \$port_var, -width => 6)->g_pack(qw/-anchor s/);
 $o_innerframe2->new_ttk__label(-text => "$i[11]")->g_pack(qw/-anchor s/);
 my $proto_textbox = $o_innerframe2->new_ttk__combobox(-textvariable => \$proto_var, -values => \@protos, -width => 4, -state=>"readonly")->g_pack(qw/-anchor s/);
+$o_innerframe2->new_ttk__label(-text => "Timeout")->g_pack(qw/-anchor s/);
+my @timeouts = (60, 120, 180, 240);
+my $timeout_textbox = $o_innerframe2->new_ttk__combobox(-textvariable => \$timeout_var, -values => \@timeouts, -width => 4, -state=>"readonly")->g_pack(qw/-anchor s/);
 my $randomize_it;
 $o_innerframe2->new_ttk__checkbutton(-text => "$i[12]", -variable => \$randomize_it, -onvalue => "on", -offvalue => "off", -command => sub {
  if ($randomize_it eq "on") {
@@ -445,7 +477,6 @@ while (<RES>) {
 close(RES);
 @nodupes_dnscrypt_servers = uniq(@dnscrypt_servers);
 $o_innerframe3->new_ttk__combobox(-textvariable => \$dnscrypt_server_var, -values => \@nodupes_dnscrypt_servers, -width => 80, -state => "readonly")->g_pack(qw/-anchor nw/);
-
 &get_current_dns;
 
 $o_frame1->g_grid(-column => 0, -row => 0, -sticky => "nswe");
@@ -472,7 +503,7 @@ $userlbl->tag_bind("link1", "<Button-1>", sub { system 1, "start https://cryptos
 $userlbl->tag_bind("link1", "<Double-1>", sub { });
 $userlbl->tag_bind("link1", "<Enter>", sub { $userlbl->configure(-cursor => 'hand2'); });
 $userlbl->tag_bind("link1", "<Leave>", sub { $userlbl->configure(-cursor => 'arrow'); });
-$userlbl->tag_bind("link2", "<Button-1>", sub { system 1, "start http://cryptofree.me/"; $userlbl->tag(qw/configure link2 -foreground purple -underline 1/); });
+$userlbl->tag_bind("link2", "<Button-1>", sub { system 1, "start https://cryptostorm.org/cryptofree"; $userlbl->tag(qw/configure link2 -foreground purple -underline 1/); });
 $userlbl->tag_bind("link2", "<Double-1>", sub { });
 $userlbl->tag_bind("link2", "<Enter>", sub { $userlbl->configure(-cursor => 'hand2'); });
 $userlbl->tag_bind("link2", "<Leave>", sub { $userlbl->configure(-cursor => 'arrow'); });
@@ -510,13 +541,16 @@ for (@nodes) {
   }
  }
 }
+if (!grep /$disp_server/, @nodes) {
+ $disp_server = $i[65];
+}
 if ($disp_server ne "$i[65]") {
  unshift(@disp_servers, "$disp_server");
 }
 $server_textbox->configure(-values => \@disp_servers);
 Tkx::tooltip($token_textbox, "$i[20]");
 $frame3 = $mw->new_ttk__frame(-relief => "flat");
-$connect = $frame3->new_ttk__button(-text => "$i[21]", -command => \&connect);
+$connect = $frame3->new_ttk__button(-text => "$i[21]", -command => \&connectt);
 $options = $frame3->new_ttk__button(-text => "$i[5]", -command => \&do_options);
 $cancel = $mw->new_ttk__button(-text => "$i[22]", -command => \&do_exit);
 $save = $frame2->new_ttk__checkbutton(-text => "$i[23]", -variable => \$saveoption, -onvalue => "on", -offvalue => "off");
@@ -671,9 +705,16 @@ if ($ipv6_var eq "on") {
 }
 
 
-
+if ($autosplash_var eq "on") {
+ $mw->g_wm_deiconify();
+ $mw->g_raise();
+ $mw->g_focus();
+}
 if ($autocon_var eq "on") {
- $connect->invoke();
+ $mw->g_wm_deiconify();
+ $mw->g_raise();
+ $mw->g_focus();
+ &connectt;
 }
 if ($upgrade) {
  sleep 3;
@@ -696,11 +737,6 @@ if (defined($amsg)) {
                                        -icon => "info", -title => "cryptostorm.is client");
 
 }
-if ($autosplash_var eq "on") {
- $mw->g_wm_deiconify();
- $mw->g_raise();
- $mw->g_focus();
-}
 Tkx::MainLoop();
 exit;
 
@@ -710,7 +746,7 @@ sub get_dnscrypt_sel {
  $sel =~ /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):([0-9]+)/;
  my $dnscrypt_ip = $1;
  my $port = $2;
- my $socket = IO::Socket::INET->new(Proto=>"tcp",PeerPort=>$port,PeerAddr=>$dnscrypt_ip,Timeout=>2);
+ my $socket = IO::Socket::INET->new(Proto=>"tcp",PeerPort=>$port,PeerAddr=>$dnscrypt_ip,Timeout=>1);
  if (defined($socket)) { 
   $sel =~ s/,.*//;
   chomp($sel);
@@ -728,6 +764,7 @@ sub hidewin {
  if (($mw->g_wm_state eq "normal") || ($mw->g_wm_state eq "iconic")) {
   $idle = 1;
   $hiddenornot = "$i[30]";
+  $mw->g_wm_deiconify();
   $mw->g_wm_withdraw();
   &do_menu(1);
  }
@@ -832,6 +869,9 @@ sub savelogin {
  if ($nostun_var =~ /(on|off)/) {
   print CREDS "nostun=$1\n";
  }
+ if ($timeout_var =~ /([0-9]+)/) {
+  print CREDS "timeout=$1\n";
+ }
  if ($noleak_var =~ /(on|off)/) {
   print CREDS "nodnsleak=$1\n";
  }
@@ -914,17 +954,18 @@ sub recon {
  $stop = 1;
  $o_done3 = 1;
  $showtiponce = 0;
+ &kill_it;
  Win32::Process::KillProcess($pid, 0) if defined $pid;
  $TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
  undef $TrayWinHidden if defined $TrayWinHidden;
  alarm 0;
  select(undef,undef,undef,0.05); 
- &connect;
+ &connectt;
 }
 
-sub connect {
- $SIG{ALRM} = sub { &recon($i[33]); };
- alarm 60;
+sub connectt {
+ $SIG{ALRM} = sub { &recon($i[33]); }; 
+ alarm $timeout_var;
  if (!$token) {
   $worldimage->configure(-image => "mainicon");
   &do_error("$i[34]");
@@ -1036,16 +1077,16 @@ sub connect {
   undef $vpn_args;
   if ($whichvpn eq "free") {
    if ($proto_var eq "UDP") {
-    $vpn_args = "--client --dev tun --proto udp --remote windows-cryptofree1-a.cstorm.pw $port_var --remote windows-cryptofree1-a.cryptostorm.net $port_var --remote windows-cryptofree1-a.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
+    $vpn_args = "--client --dev tun --proto udp --remote windows-cryptofree1-a.cstorm.pw $port_var --remote windows-cryptofree1-a.cryptostorm.net $port_var --remote windows-cryptofree1-a.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
    }
    if ($proto_var eq "TCP") {
-    $vpn_args = "--client --dev tun --proto tcp --remote windows-cryptofree1-a.cstorm.pw $port_var --remote windows-cryptofree1-a.cryptostorm.net $port_var --remote windows-cryptofree1-a.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
+    $vpn_args = "--client --dev tun --proto tcp --remote windows-cryptofree1-a.cstorm.pw $port_var --remote windows-cryptofree1-a.cryptostorm.net $port_var --remote windows-cryptofree1-a.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
    }
   }
   if ($whichvpn eq "paid") {
    if ($proto_var eq "UDP") {
     if ($server eq "$i[65]") {
-     $vpn_args = "--client --dev tun --proto udp --remote windows-balancer.cstorm.pw $port_var --remote windows-balancer.cryptostorm.net $port_var --remote windows-balancer.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
+     $vpn_args = "--client --dev tun --proto udp --remote windows-balancer.cstorm.pw $port_var --remote windows-balancer.cryptostorm.net $port_var --remote windows-balancer.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
 	}
 	else {
 	 my @tmparray = grep(/$server/,@servers);
@@ -1053,18 +1094,18 @@ sub connect {
 	 if ($tmpline =~ /^obfsproxy/) { 
 	  $tmpline =~ s/.*://;	
 	  $tmpline =~ s/\.cstorm\.pw//;
-	  $vpn_args = "--client --dev tun --proto tcp --remote $tmpline.cstorm.pw 443 --remote $tmpline.cryptostorm.net 443 --remote $tmpline.cryptostorm.org 443 --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 --socks-proxy-retry --socks-proxy 127.0.0.1 10194";
+	  $vpn_args = "--client --dev tun --proto tcp --remote $tmpline.cstorm.pw 443 --remote $tmpline.cryptostorm.net 443 --remote $tmpline.cryptostorm.org 443 --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 --socks-proxy-retry --socks-proxy 127.0.0.1 10194";
 	 }
 	 else {
 	  $tmpline =~ s/.*://;
 	  $tmpline =~ s/\.cstorm\.pw//;
-	  $vpn_args = "--client --dev tun --proto udp --remote $tmpline.cstorm.pw $port_var --remote $tmpline.cryptostorm.net $port_var --remote $tmpline.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
+	  $vpn_args = "--client --dev tun --proto udp --remote $tmpline.cstorm.pw $port_var --remote $tmpline.cryptostorm.net $port_var --remote $tmpline.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --explicit-exit-notify 3 --hand-window 17 --fragment 1400 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
 	 }
 	}
    }
    if ($proto_var eq "TCP") {
     if ($server eq "$i[65]") {
-     $vpn_args = "--client --dev tun --proto tcp --remote windows-balancer.cstorm.pw $port_var --remote windows-balancer.cryptostorm.net $port_var --remote windows-balancer.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
+     $vpn_args = "--client --dev tun --proto tcp --remote windows-balancer.cstorm.pw $port_var --remote windows-balancer.cryptostorm.net $port_var --remote windows-balancer.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
 	}
 	else {
 	 my @tmparray = grep(/$server/,@servers);
@@ -1072,17 +1113,18 @@ sub connect {
 	 if ($tmpline =~ /^obfsproxy/) { 
 	  $tmpline =~ s/.*://;
 	  $tmpline =~ s/\.cstorm\.pw//;
-	  $vpn_args = "--client --dev tun --proto tcp --remote $tmpline.cstorm.pw 443 --remote $tmpline.cryptostorm.net 443 --remote $tmpline.cryptostorm.org 443 --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 --socks-proxy-retry --socks-proxy 127.0.0.1 10194";
+	  $vpn_args = "--client --dev tun --proto tcp --remote $tmpline.cstorm.pw 443 --remote $tmpline.cryptostorm.net 443 --remote $tmpline.cryptostorm.org 443 --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2 --socks-proxy-retry --socks-proxy 127.0.0.1 10194";
 	 }
 	 else {
  	  $tmpline =~ s/.*://;
 	  $tmpline =~ s/\.cstorm\.pw//;
-	  $vpn_args = "--client --dev tun --proto tcp --remote $tmpline.cstorm.pw $port_var --remote $tmpline.cryptostorm.net $port_var --remote $tmpline.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --ns-cert-type server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
+	  $vpn_args = "--client --dev tun --proto tcp --remote $tmpline.cstorm.pw $port_var --remote $tmpline.cryptostorm.net $port_var --remote $tmpline.cryptostorm.org $port_var --resolv-retry infinite --nobind --comp-lzo --down-pre --reneg-sec 0 --hand-window 17 --verb 4 --mute 3 --auth-user-pass client.dat --ca ca2.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --key-method 2";
 	 }
     }
    }
   }
-  $pid = open $VPNfh, "..\\bin\\$vpnexe $vpn_args --block-outside-dns --config $vpncfgfile|" or &do_error("1015: $i[44]");
+  $manport = get_next_free_local_port(5000);  
+  $pid = open $VPNfh, "..\\bin\\$vpnexe $vpn_args --management 127.0.0.1 $manport --config $vpncfgfile|" or &do_error("1015: $i[44]");
   step_pbar();
   Tkx::update();
   $gobblegobble = 1;
@@ -1101,7 +1143,7 @@ sub connect {
 
 sub start_obfsproxy {
  my $pi = Win32::Process::Info->new;
- my @info = $pi->GetProcInfo();
+ my @info = $pi->GetProcInfo();	
  foreach(@info) {
   if($_->{Name} =~ /^obfsproxy.exe$/) {
    Win32::Process::KillProcess ($_->{ProcessId}, 0);
@@ -1154,7 +1196,7 @@ sub watch_logbox {
    alarm 0;
   }
   if ($line =~ /Cannot resolve host address: (.*)/) {
-   $logbox->insert_end("Cannot resolve $1\nThis usually means\nsomething is wrong with your DNS settings.\n", "badline");
+   $logbox->insert_end("Cannot resolve $1\nThis usually means\nsomething is wrong with your DNS settings.\n", "badline");   
    $logbox->see('end');
    if ($statusvar =~ /Connected/) {
 	$worldimage->configure(-image => "mainicon");
@@ -1224,11 +1266,15 @@ sub watch_logbox {
 		$statusvar = "Downloading latest widget setup...";
 	    Tkx::update();
 		if (-f "cryptostorm_setup.exe") { unlink("cryptostorm_setup.exe"); }
-        &grabnverify("cryptostorm_setup.exe");
+        &grabnverify("bin/cryptostorm_setup.exe");
+		if ($statusvar eq "Downloaded file verified correctly.") {
+		 copy("..\\bin\\tmp\\cryptostorm_setup.exe","..\\bin\\");
+		 unlink "..\\bin\\tmp\\cryptostorm_setup.exe";
+	     rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
+		}
 	    $statusvar = "Done.";
 	    Tkx::update();
-        system 1, "cryptostorm_setup.exe";
-		&do_exit;
+		if (-f "cryptostorm_setup.exe") { system 1, "cryptostorm_setup.exe"; }		
 		&do_exit;
 	   }
       }
@@ -1270,6 +1316,7 @@ sub do_exit {
  }
  if (($idunno eq "yes") || ($idunno eq "whatever")) {
   $cancel->configure(-state => "disabled");
+  &kill_it;
   if ($nostun_var eq "on") {
    $statusvar = "$i[52]";
    Tkx::update();
@@ -1299,9 +1346,8 @@ sub do_exit {
    $stop = 1;
    $done = 1;
    $o_done3 = 1;  
-   $o_thread3->kill('KILL') unless !defined $o_thread3;
-   Win32::Process::KillProcess($pid, 0) if defined $pid;
-   # cheap fix for that weird bug where it crashes twice on exit after you connect/disconnect
+   $o_thread3->kill('KILL') unless !defined $o_thread3;   
+   Win32::Process::KillProcess($pid, 0) if defined $pid;   
    Win32::Process::KillProcess($masterpid, 0) if defined $masterpid;
    $mw->g_destroy() if defined $mw;
    exit(0);
@@ -1326,8 +1372,8 @@ sub do_exit {
    $logbox->delete("end - 1 line","end");
    $logbox->insert_end("\n\n\n\n\n\n\n\n\n\n\n\n");
    $logbox->insert_end("$i[54]\n", "badline");
-   $logbox->see('end'); 
-   Win32::Process::KillProcess($pid, 0) if defined $pid;
+   $logbox->see('end');    
+   Win32::Process::KillProcess($pid, 0) if defined $pid;   
    $TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
    undef $TrayWinHidden if defined $TrayWinHidden;
    $cancel->configure(-state => "normal");
@@ -1344,11 +1390,11 @@ sub do_exit {
 	Tkx::update();
 	sleep 1;
     unlink("..\\bin\\ossl.exe");
-	copy("..\\bin\\tmp\\ossl.exe","..\\bin\\");
     unlink("..\\bin\\libeay32.dll");
-    copy("..\\bin\\tmp\\libeay32.dll","..\\bin\\");
     unlink("..\\bin\\ssleay32.dll");
-    copy("..\\bin\\tmp\\ssleay32.dll","..\\bin\\");
+	foreach (glob "..\\bin\\tmp\\*.*") {
+	 copy($_,"..\\bin\\");
+	}
 	$replaceossl = 0;
     $statusvar = "Done.";
     Tkx::update();
@@ -1360,28 +1406,33 @@ sub do_exit {
     if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
      $osslver = $1;
     }
-	unlink "..\\bin\\tmp\\ossl.exe";
-	unlink "..\\bin\\tmp\\ossl.exe.hash";
-	unlink "..\\bin\\tmp\\libeay32.dll";
-	unlink "..\\bin\\tmp\\libeay32.dll.hash";
-	unlink "..\\bin\\tmp\\ssleay32.dll";
-	unlink "..\\bin\\tmp\\ssleay32.dll.hash";
-	rmdir "..\\bin\\tmp";
+	foreach (glob "..\\bin\\tmp\\*.*") {
+	 unlink($_);
+	}
+	rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
    }
    if ($replaceovpn) {
     $statusvar = "Upgrading OpenVPN...";
-	Tkx::update();
+	Tkx::update();	
     my $pi = Win32::Process::Info->new;
-    my @info = $pi->GetProcInfo();
-    my $therecanbeonlytwo = 0;
+    my @info = $pi->GetProcInfo();    
     foreach(@info) {
      if($_->{Name} =~ /^csvpn.exe$/) {
+	  &kill_it;
       Win32::Process::KillProcess ($_->{ProcessId}, 0);
      }
 	}
 	sleep 2;
     unlink("..\\bin\\csvpn.exe");
-	copy("..\\bin\\tmp\\csvpn.exe","..\\bin\\");
+	unlink("..\\bin\\ossl.exe");
+	unlink("..\\bin\\libeay32.dll");
+	unlink("..\\bin\\ssleay32.dll");
+	unlink("..\\bin\\liblzo2-2.dll");
+	unlink("..\\bin\\libpkcs11-helper-1.dll");
+	unlink("..\\bin\\msvcr120.dll");
+	foreach (glob "..\\bin\\tmp\\*.*") {
+	 copy($_,"..\\bin\\");
+	}
 	$replaceovpn = 0;
     $statusvar = "Done.";
     Tkx::update();
@@ -1393,9 +1444,10 @@ sub do_exit {
     if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
      $osslver = $1;
     }
-	unlink "..\\bin\\tmp\\csvpn.exe";
-	unlink "..\\bin\\tmp\\csvpn.exe.hash";
-	rmdir "..\\bin\\tmp";
+	foreach (glob "..\\bin\\tmp\\*.*") {
+	 unlink($_);
+	}
+	rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;	
    }
   }
  }
@@ -1620,35 +1672,59 @@ sub check_version_thread {
    $o_version_buf = $1;
   }
   if ($response->content() =~ /MSG:ON:(.*)/) {
-   $amsg = $1;  
+   if ($response->content() !~ /31MSG:ON:(.*)/) { 
+    $amsg = $1;
+   }
   }
   my $upgradeornot;
   if ($response->content() =~ /LATEST_OVPN:([0-9\.]+)/) {
    my $newestver = $1;
-   if ($1 ne $ovpnver) {
+   chomp($newestver);
+   if ($newestver ne $ovpnver) {
 	$upgradeornot = Tkx::tk___messageBox(-parent => $mw, -type => "yesno", 
                                          -message => "You are using OpenVPN version $ovpnver and the latest is $1.\nWould you like to upgrade?",
                                          -icon => "question", -title => "cryptostorm.is client");
     if ($upgradeornot eq "yes") {
-	 $statusvar = "Upgrading OpenVPN...";
+	 $statusvar = "Downloading OpenVPN...";
 	 Tkx::update();
-	 mkdir("..\\bin\\tmp");
-     &grabnverify("csvpn.exe");
-	 $statusvar = "Testing downloaded OpenVPN...";
-	 Tkx::update();
-	 if (`..\\bin\\tmp\\csvpn --version` =~ /$newestver/) {
+	 mkdir("..\\bin\\tmp") if (!-d "..\\bin\\tmp");
+	 $statusvar = "Downloading libeay32.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/libeay32.dll");
+	 $statusvar = "Downloading ssleay32.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/ssleay32.dll");
+	 $statusvar = "Downloading liblzo2-2.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/liblzo2-2.dll");
+	 $statusvar = "Downloading libpkcs11-helper-1.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/libpkcs11-helper-1.dll");
+	 $statusvar = "Downloading msvcr120.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/msvcr120.dll");
+	 $statusvar = "Downloading OpenSSL...";
+	 Tkx::update();	 
+	 &grabnverify("bin/ossl.exe");
+	 $statusvar = "Downloading OpenVPN...";
+	 Tkx::update();	 
+	 &grabnverify("bin/csvpn.exe");
+	 $statusvar = "Finished downloading OpenVPN and it's dependencies.";
+	 Tkx::update();	 
+	 if (-e "..\\bin\\tmp\\csvpn.exe") {
 	  Tkx::tk___messageBox(-parent => $mw, -type =>    "ok", 
                                       -message => "Now disconnect.\nWhen you reconnect you will be using OpenVPN $newestver.",
                                       -icon => "info", -title => "cryptostorm.is client");
       $replaceovpn = 1;
 	 }
-	 else {
+	 else {	  
 	  $statusvar = "Downloaded OpenVPN failed test(s). Retry Later.";
 	  Tkx::update();
-	 }
+	 }	 
 	 if (!$replaceovpn) {
-	  unlink glob "..\\bin\\tmp\\*.*";
-	  rmdir("..\\bin\\tmp");
+	  unlink "..\\bin\\tmp\\csvpn.exe";
+	  unlink "..\\bin\\tmp\\csvpn.exe.hash";
+	  rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
 	 }
 	 $statusvar = "Connected.";
 	 Tkx::update();
@@ -1665,16 +1741,16 @@ sub check_version_thread {
 	 mkdir("..\\bin\\tmp");
      $statusvar = "Downloading ossl.exe...";
 	 Tkx::update();
-     &grabnverify("ossl.exe");
+     &grabnverify("bin/ossl.exe");
 	 $statusvar = "Downloading libeay32.dll...";
 	 Tkx::update();
-     &grabnverify("libeay32.dll");
+     &grabnverify("bin/libeay32.dll");
 	 $statusvar = "Downloading ssleay32.dll...";
 	 Tkx::update();
-     &grabnverify("ssleay32.dll");
+     &grabnverify("bin/ssleay32.dll");
 	 $statusvar = "Testing downloaded OpenSSL...";
 	 Tkx::update();
-	 if (`..\\bin\\tmp\\ossl version` =~ /$newestver/) {
+	 if (-e "..\\bin\\tmp\\ssleay32.dll") {
 	  Tkx::tk___messageBox(-parent => $mw, -type =>    "ok", 
                                       -message => "Now disconnect.\nWhen you reconnect you will be using OpenSSL $newestver.",
                                       -icon => "info", -title => "cryptostorm.is client");
@@ -1685,8 +1761,13 @@ sub check_version_thread {
 	  Tkx::update();
 	 }
 	 if (!$replaceossl) {
-	  unlink glob "..\\bin\\tmp\\*.*";
-	  rmdir("..\\bin\\tmp");
+	  unlink "..\\bin\\tmp\\ossl.exe";
+	  unlink "..\\bin\\tmp\\ossl.exe.hash";
+	  unlink "..\\bin\\tmp\\libeay32.dll";
+	  unlink "..\\bin\\tmp\\libeay32.dll.hash";
+	  unlink "..\\bin\\tmp\\ssleay32.dll";
+	  unlink "..\\bin\\tmp\\ssleay32.dll.hash";
+	  rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
 	 }
 	 $statusvar = "Connected.";
 	 Tkx::update();
@@ -1705,11 +1786,13 @@ sub check_version_thread {
 	 mkdir("..\\bin\\tmp");
      $statusvar = "Downloading dnscrypt-resolvers.csv...";
 	 Tkx::update();
-     &grabnverify("dnscrypt-resolvers.csv");
-	 Tkx::update();
-	 sleep 1;
-     unlink glob "..\\bin\\tmp\\*.*";
-	 rmdir("..\\bin\\tmp");
+     &grabnverify("bin/dnscrypt-resolvers.csv");
+	 if ($statusvar eq "Downloaded file verified correctly.") {
+      copy("..\\bin\\tmp\\dnscrypt-resolvers.csv","..\\bin\\") or &do_error("Could not copy ..\\bin\\tmp\\dnscrypt-resolvers.csv to ..\\bin\\");
+	 }
+     unlink "..\\bin\\tmp\\dnscrypt-resolvers.csv";
+	 unlink "..\\bin\\tmp\\dnscrypt-resolvers.csv.hash";
+	 rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
 	 $statusvar = "Connected.";
 	 Tkx::update();
     }
@@ -1727,30 +1810,49 @@ sub check_version_thread {
 sub callback {
  my ($data, $response, $protocol) = @_;
  $final_data .= $data;
- $statusvar = "$statusvar [" . $animation[$counter++] . "]";
+ my $spinner = $animation[$counter++];
+ $statusvar = "$statusvar " . "[" . $spinner . "]";
+ $statusvar =~ s/\s+\[/ \[/;
  Tkx::update();
  chop($statusvar); chop($statusvar);
  chop($statusvar); chop($statusvar);
- $counter = 0 if $counter == scalar(@animation);
+ $counter = 0 if $counter == scalar(@animation); 
+}
+
+sub progress_bar {
+ my ( $got, $total, $width, $char ) = @_;
+ $width ||= 25; $char ||= '=';
+ my $num_width = length $total;
+ sprintf "%${num_width}s bytes of %s (%.2f%%)", $char x (($width-1)*$got/$total). '>', $got, $total, 100*$got/+$total;
 }
 
 sub grabnverify {
  $final_data = undef;
+ my $dir_to_put;
+ my $file_to_grab;
+ if ($_[0] =~ /^(.*)\/(.*)$/) {
+  $dir_to_put = $1;
+  $file_to_grab = $2;
+ }
+ else {
+  &do_error("Something went wrong...");
+ }
+ if (!-d "..\\bin\\tmp") { mkdir "..\\bin\\tmp"; }
  my $fh;
- my $url = "http://10.31.33.7/" . $_[0];
+ my $url = "http://10.31.33.7/" . $file_to_grab;
  my $ua = LWP::UserAgent->new;
  my $response = $ua->get($url, ':content_cb' => \&callback );
  if ($response->is_success) {
   binmode STDOUT,':raw';
-  open $fh, '>', "..\\bin\\tmp\\$_[0]" or &do_error("\nCannot create file ..\\bin\\tmp\\$_[0] because $!\n");
+  open $fh, '>', "..\\bin\\tmp\\$file_to_grab" or &do_error("\nCannot create file ..\\bin\\tmp\\$file_to_grab because $!\n");
   binmode $fh;
   print $fh $final_data;
   close $fh;
-  $statusvar = "Downloaded $_[0]";
+  $statusvar = "Downloaded $file_to_grab";
   Tkx::update();  
  }
  else {
-  &do_error("Couldn't download http://10.31.33.7/$_[0]: " . $response->status_line . "\n");
+  &do_error("Couldn't download http://10.31.33.7/$file_to_grab: " . $response->status_line . "\n");
   return;
  }
  undef $ua;
@@ -1761,26 +1863,26 @@ sub grabnverify {
  $response = $ua->get($url . ".hash", ':content_cb' => \&callback );
  if ($response->is_success) {
   binmode STDOUT,':raw';
-  open $fh, '>', "..\\bin\\tmp\\$_[0].hash" or &do_error("\nCannot create file ..\\bin\\tmp\\$_[0] because $!\n");
+  open $fh, '>', "..\\bin\\tmp\\$file_to_grab.hash" or &do_error("\nCannot create file ..\\bin\\tmp\\$file_to_grab because $!\n");
   binmode $fh;
   print $fh $final_data;
   close $fh;
-  $statusvar = "Downloaded $_[0]";
+  $statusvar = "Downloaded $file_to_grab";
   Tkx::update();  
  }
  else {
-  &do_error("Couldn't download http://10.31.33.7/$_[0].hash: " . $response->status_line . "\n");
+  &do_error("Couldn't download http://10.31.33.7/$file_to_grab.hash: " . $response->status_line . "\n");
   return;
  }
- my $yayornay = `..\\bin\\ossl dgst -sha512 -verify ..\\bin\\widget.pub -signature ..\\bin\\tmp\\$_[0].hash ..\\bin\\tmp\\$_[0]`;
+ my $yayornay = `..\\bin\\ossl dgst -sha512 -verify ..\\bin\\widget.pub -signature ..\\bin\\tmp\\$file_to_grab.hash ..\\bin\\tmp\\$file_to_grab`; 
  if ($yayornay =~ /Verified OK/) {
-  $statusvar = "Downloaded file verified correctly.";
-  Tkx::update();
+  $statusvar = "Downloaded file verified correctly.";  
+  Tkx::update();  
  }
  else {
-  $statusvar = "File verification failed for $_[0]";
-  Tkx::update();
-  unlink("..\\bin\\tmp\\$_[0]");
+  $statusvar = "File verification failed for $file_to_grab";
+  Tkx::update();  
+  unlink("..\\bin\\tmp\\$file_to_grab");
  }
 }
 
@@ -1792,9 +1894,36 @@ sub dnscrypt {
    Win32::Process::KillProcess ($_->{ProcessId}, 0);
   }
  }
- system 1, "..\\bin\\dnscrypt-proxy --local-address=127.0.0.1:53 -R $_[0]";
- if ($statusvar !~ /Connected/) {
-  &set_dns_to_dnscrypt;
+ my @isinuse = `netstat -anob`;
+ my $nodns = "0";
+ my $dnsinc;
+ for (@isinuse) {  
+  if (/127\.0\.0\.1:53\s.*LISTENING(.*)/) {
+   my $pidness = $1;
+   $pidness =~ s/\r|\n|\s//g;
+   my $program = $isinuse[$dnsinc + 1];
+   $program =~ s/\[//g;
+   $program =~ s/\]//g;
+   $program =~ s/\r|\n//g;
+   $program =~ s/\s//g;
+   if ($program ne "dnscrypt-proxy.exe") {
+    $nodns = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
+                                  -message => "The program $program is already listening on 127.0.0.1 port 53, " .
+	   					                      "which is what DNSCrypt requires.\nWould you like to terminate " . 
+											  "$program?\nIf $program is left running, DNSCrypt will be disabled.",
+                                  -icon => "question", -title => "cryptostorm.is client");
+    if ($nodns eq "yes") {
+     Win32::Process::KillProcess ($pidness, 0);	
+    }
+   }
+  }
+  $dnsinc++;
+ }
+ if (($nodns eq "0") || ($nodns eq "yes")) {
+  system 1, "..\\bin\\dnscrypt-proxy --local-address=127.0.0.1:53 -R $_[0]";
+  if ($statusvar !~ /Connected/) {
+   &set_dns_to_dnscrypt;
+  }
  }
 }
 
@@ -1851,7 +1980,8 @@ sub power_event {
    $logbox->insert_end("System entering suspended state...\n");
    $logbox->insert_end("$i[54]\n", "badline");
    $logbox->see('end');
-   Win32::Process::KillProcess($pid, 0) if defined $pid;
+   &kill_it;
+   Win32::Process::KillProcess($pid, 0) if defined $pid;   
    $TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
    undef $TrayWinHidden if defined $TrayWinHidden;
    $cancel->configure(-state => "normal");
@@ -1879,6 +2009,9 @@ sub restore_dns {
   if (/^(.*):Static:(.*)$/) {
    system qq(netsh interface ip set dns "$1" static $2);
   }
+ } 
+ if (-e "..\\user\\mydns.txt") {
+  unlink("..\\user\\mydns.txt");
  }
  $statusvar = $tmpstatusvarblah;
  Tkx::update();
@@ -1915,8 +2048,15 @@ sub get_current_dns {
    my $dnstype = $1;
    my $tmpy = $2;
    if ($tmpy !~ /None/) {
-	push(@recover,"$current_interface:$dnstype:$tmpy");
+	push(@recover,"$current_interface:$dnstype:$tmpy\r\n");
    }
+  }
+ }
+ if ($#recover > -1) {
+  my $ret = open(MYDNS,">","..\\user\\mydns.txt");
+  if ($ret) {
+   print MYDNS @recover;
+   close(MYDNS);
   }
  }
 }
@@ -1991,4 +2131,83 @@ sub red_derp {
   select(undef,undef,undef,0.049);
  }
  $worldimage->configure(-image => "mainicon"); 
+}
+
+sub do_error {
+ my $error = $_[0];
+ $worldimage->g_grid_remove() unless !defined($worldimage);
+ $errorimage->g_grid(-column => 0, -row => 0) unless !defined($errorimage);
+ Tkx::tk___messageBox(-icon => "error", -message => "Error: $error");
+ $errorimage->g_grid_remove() unless !defined($errorimage);
+ $worldimage->g_grid(-column => 0, -row => 0) unless !defined($worldimage);
+ $options->configure(-state => "normal") unless !defined($options);
+ if (defined($autocon_var) && ($autocon_var eq "on")) {
+  $statusvar = "$i[62]";
+  $autocon_var = "off";
+  &savelogin;
+ }
+ return;
+}
+
+sub isEmpty {
+ return undef unless -d $_[0];
+ opendir my $dh, $_[0] or print $!; 
+ my $count = grep { ! /^\.{1,2}/ } readdir $dh;
+ return $count;
+}
+
+sub local_port_is_free {
+ my ($portnumber) = @_;
+ my $proto = getprotobyname('tcp');
+ my $iaddr = inet_aton('localhost');
+ my $timeout = 5;
+ my $freeport = 0;
+ my $paddr = sockaddr_in($portnumber, $iaddr);
+ socket(SOCKET, PF_INET, SOCK_STREAM, $proto);
+ eval {
+  local $SIG{ALRM} = sub { die "timeout" };
+  alarm($timeout);
+  connect(SOCKET, $paddr) || error();
+ };
+ if ($@) {
+  eval {close SOCKET; };
+  $freeport = $portnumber;
+ }
+ else {
+  eval {close SOCKET; };
+ }
+ alarm(0);
+ return $freeport;
+}
+
+sub get_next_free_local_port {
+ my ($startport) = @_;
+ my $freeport = 0;
+ my $tryport = $startport;
+ while(not $freeport = &local_port_is_free($tryport) ) {
+  $tryport ++;
+  die("Cannot find free port") if $tryport > ($startport + 100);
+ }
+ return $freeport;
+}
+
+sub kill_it {
+ $| = 1;
+ my ($socket,$client_socket,$data);
+ $socket = new IO::Socket::INET (
+ PeerHost => '127.0.0.1',
+ PeerPort => $manport,
+ Proto => 'tcp',
+ ) or return;
+ while (<$socket>) {
+  if (/INFO:OpenVPN Management Interface Version/) {
+   print $socket "signal SIGTERM\n";
+   my $response = "";
+   $socket->recv($response, 30);
+   if ($response =~ /SUCCESS: signal SIGTERM thrown/) {
+    $socket->close();
+    return;
+   }
+  }
+ }
 }
