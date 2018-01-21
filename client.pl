@@ -10,13 +10,14 @@
 #  print $fh "[@{[time]}] $file $line $code->[$line]";
 # }
 #}
+our $VERSION = "3.12";
 if (-d "\\Program Files\\Cryptostorm Client\\bin") {
  chdir("\\Program Files\\Cryptostorm Client\\bin\\");
 }
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our ($ovpnver, $osslver, $replaceossl, $replaceovpn, $verstuff, $final_data, $counter, $gobblegobble, $manport);
+our ($ovpnver, $osslver, $replaceossl, $replaceovpn, $verstuff, $final_data, $counter, $gobblegobble, $manport, $doupgrade, $total_size, $fh);
 our @animation = qw( \ | / -- );
 our @i;
 our @output;
@@ -123,7 +124,6 @@ use Win32::Process::Info;
 use Win32::AbsPath;
 use File::Copy;
 our $self = Win32::AbsPath::Fix "$0";
-our $VERSION = "3.10";
 our $BUILDVERSION;
 use Win32::File::VersionInfo;
 my $foo = GetFileVersionInfo ( "$self" );
@@ -159,7 +159,7 @@ my $nodelistfile = '..\user\nodelist.txt';
 my $c = 0;
 my $alreadylong = 0;
 my $server = "";
-my ( $line, $VPNfh, $thread, $updatethread, $bit, $tapexe, $vpnexe, $h);
+my ( $line, $VPNfh, $thread, $updatethread, $bit, $tapexe, $vpnexe, $osslexe, $h);
 my ($frame1, $frame2, $frame3, $frame4, $saveoption, $password, $userlbl, $passlbl, $connect, $cancel, $pass, 
     $save, $progress, $pbar, $pbarval, $statuslbl, $statusvar, $token_textbox, $token, $worldimage, $logbox, 
 	$scroll, $errorimage, $server_textbox, $disp_server, $tripimage, $server_host, $update, $menu, $send, $options);
@@ -293,7 +293,7 @@ if (Win32::IsAdminUser() != 1) {
 my ($STRING, $MAJOR, $MINOR, $BUILD, $ID) = Win32::GetOSVersion();
 if ($MAJOR < 6) {
  &do_error("This program only supports Windows Vista and later");
- exit;
+ &do_exit;
 }
 sub TERM_handler {
  $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno", 
@@ -311,12 +311,13 @@ my $cw = $mw->new_toplevel;
 $cw->g_wm_withdraw();
 Tkx::tk(appname => "cryptostorm.is darknet client");
 Tkx::wm_iconphoto($mw, "mainicon");
+&check_bit();
 my $pi = Win32::Process::Info->new;
 $masterpid = Win32::Process::GetCurrentProcessID();
 my @info = $pi->GetProcInfo();
 foreach(@info) {
  next if $_->{ProcessId} == $masterpid;
- if ($_->{Name} =~ /^csvpn.exe$/) {
+ if ($_->{Name} =~ /^$vpnexe$/) {
   Win32::Process::KillProcess ($_->{ProcessId}, 0);
  }
  if ($_->{Name} =~ /^client.exe$/) {  
@@ -340,11 +341,11 @@ if (-e "..\\user\\mydns.txt") {
  &restore_dns;
 }
 
-$verstuff = `..\\bin\\csvpn --version`;
+$verstuff = `..\\bin\\$vpnexe --version`;
 if ($verstuff =~ /OpenVPN ([0-9\.]+)/) {
  $ovpnver = $1;
 }
-$verstuff = `..\\bin\\ossl version`;
+$verstuff = `..\\bin\\$osslexe version`;
 if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
  $osslver = $1;
 } 
@@ -894,11 +895,13 @@ sub check_bit {
  if (uc($ENV{PROCESSOR_ARCHITECTURE}) eq "AMD64" || uc($ENV{PROCESSOR_ARCHITEW6432}) eq "AMD64") {
   $tapexe = "tap64.exe";
   $vpnexe = "csvpn.exe";
+  $osslexe = "ossl.exe";
   $bit = "64";
  } 
  else {
   $tapexe = "tap32.exe";
-  $vpnexe = "csvpn.exe";
+  $vpnexe = "32\\csvpn32.exe";
+  $osslexe = "32\\ossl32.exe";
   $bit = "32";
  }
 }
@@ -1013,10 +1016,9 @@ sub connectt {
   $autocon_var = "off";
  }
  $statusvar = "$i[37]";
- &step_pbar();
- &check_bit();
- $statusvar = "$i[38]";
- $statusvar =~ s/xxx/$bit/;
+ &step_pbar(); 
+ #$statusvar = "$i[38]";
+ #$statusvar =~ s/xxx/$bit/;
  Tkx::update();
  &blue_derp;
  $statusvar = "$i[39]";
@@ -1262,20 +1264,20 @@ sub watch_logbox {
         if ($token) {
          copy($hashfile,$ENV{'TEMP'} . "\\client.dat");
          copy($authfile,$ENV{'TEMP'} . "\\logo.jpg");
-        }
+        }       
 		$statusvar = "Downloading latest widget setup...";
-	    Tkx::update();
-		if (-f "cryptostorm_setup.exe") { unlink("cryptostorm_setup.exe"); }
+	    Tkx::update();		
         &grabnverify("bin/cryptostorm_setup.exe");
-		if ($statusvar eq "Downloaded file verified correctly.") {
-		 copy("..\\bin\\tmp\\cryptostorm_setup.exe","..\\bin\\");
-		 unlink "..\\bin\\tmp\\cryptostorm_setup.exe";
-	     rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
-		}
+		copy("..\\bin\\tmp\\cryptostorm_setup.exe","..\\bin\\");
+		unlink "..\\bin\\tmp\\cryptostorm_setup.exe" if (-e "..\\bin\\tmp\\cryptostorm_setup.exe");
+		unlink "..\\bin\\tmp\\cryptostorm_setup.exe.hash" if (-e "..\\bin\\tmp\\cryptostorm_setup.exe.hash");
+	    rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
 	    $statusvar = "Done.";
 	    Tkx::update();
-		if (-f "cryptostorm_setup.exe") { system 1, "cryptostorm_setup.exe"; }		
-		&do_exit;
+		$doupgrade = 1;
+		Tkx::tk___messageBox(-parent => $mw, -type =>    "ok", 
+                                           -message => "Now disconnect and exit this program.\nWhen the widget closes, the installer for the latest version will start.",
+                                           -icon => "info", -title => "cryptostorm.is client");
 	   }
       }
 	 }
@@ -1288,7 +1290,7 @@ sub watch_logbox {
 	 $statusvar = "Connected.";
 	 Tkx::update();
 	}
-	if ((!$replaceossl) && (!$replaceovpn)) {
+	if ((!$replaceossl) && (!$replaceovpn) && (!$doupgrade)) {
 	 $statusvar = "Connected.";
  	 Tkx::update();
      &hidewin;
@@ -1343,13 +1345,21 @@ sub do_exit {
    }
    $TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
    undef $TrayWinHidden if defined $TrayWinHidden;
+   if ($doupgrade) {    
+	my $ParentPID;
+	$ParentPID = $$;	
+	my $ChildProc;	
+    my $CWD = "..\\bin";
+	my $CMD = "cryptostorm_setup.exe";		
+	Win32::Process::Create($ChildProc, "$CWD\\$CMD", "$CMD", 0, DETACHED_PROCESS, "..\\bin") or &do_error("Couldn't run $CWD\\$CMD: $!");	
+   }
    $stop = 1;
    $done = 1;
    $o_done3 = 1;  
    $o_thread3->kill('KILL') unless !defined $o_thread3;   
    Win32::Process::KillProcess($pid, 0) if defined $pid;   
    Win32::Process::KillProcess($masterpid, 0) if defined $masterpid;
-   $mw->g_destroy() if defined $mw;
+   $mw->g_destroy() if defined $mw;   
    exit(0);
   }
   if ($cancel->cget(-text) eq "$i[50]") {
@@ -1389,7 +1399,7 @@ sub do_exit {
     $statusvar = "Upgrading OpenSSL...";
 	Tkx::update();
 	sleep 1;
-    unlink("..\\bin\\ossl.exe");
+    unlink("..\\bin\\$osslexe");
     unlink("..\\bin\\libeay32.dll");
     unlink("..\\bin\\ssleay32.dll");
 	foreach (glob "..\\bin\\tmp\\*.*") {
@@ -1398,11 +1408,11 @@ sub do_exit {
 	$replaceossl = 0;
     $statusvar = "Done.";
     Tkx::update();
-	$verstuff = `..\\bin\\csvpn --version`;
+	$verstuff = `..\\bin\\$vpnexe --version`;
     if ($verstuff =~ /OpenVPN ([0-9\.]+)/) {
      $ovpnver = $1;
     }
-	$verstuff = `..\\bin\\ossl version`;
+	$verstuff = `..\\bin\\$osslexe version`;
     if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
      $osslver = $1;
     }
@@ -1417,14 +1427,14 @@ sub do_exit {
     my $pi = Win32::Process::Info->new;
     my @info = $pi->GetProcInfo();    
     foreach(@info) {
-     if($_->{Name} =~ /^csvpn.exe$/) {
+     if($_->{Name} =~ /^$vpnexe$/) {
 	  &kill_it;
       Win32::Process::KillProcess ($_->{ProcessId}, 0);
-     }
+     }	 
 	}
 	sleep 2;
-    unlink("..\\bin\\csvpn.exe");
-	unlink("..\\bin\\ossl.exe");
+    unlink("..\\bin\\$vpnexe");	
+	unlink("..\\bin\\$osslexe");
 	unlink("..\\bin\\libeay32.dll");
 	unlink("..\\bin\\ssleay32.dll");
 	unlink("..\\bin\\liblzo2-2.dll");
@@ -1436,11 +1446,11 @@ sub do_exit {
 	$replaceovpn = 0;
     $statusvar = "Done.";
     Tkx::update();
-	$verstuff = `..\\bin\\csvpn --version`;
+	$verstuff = `..\\bin\\$vpnexe --version`;
     if ($verstuff =~ /OpenVPN ([0-9\.]+)/) {
      $ovpnver = $1;
     }
-	$verstuff = `..\\bin\\ossl version`;
+	$verstuff = `..\\bin\\$osslexe version`;
     if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
      $osslver = $1;
     }
@@ -1677,7 +1687,7 @@ sub check_version_thread {
    }
   }
   my $upgradeornot;
-  if ($response->content() =~ /LATEST_OVPN:([0-9\.]+)/) {
+  if (($response->content() =~ /LATEST_OVPN:([0-9\.]+)/) && ($bit eq "64")) {
    my $newestver = $1;
    chomp($newestver);
    if ($newestver ne $ovpnver) {
@@ -1705,13 +1715,13 @@ sub check_version_thread {
 	 &grabnverify("bin/msvcr120.dll");
 	 $statusvar = "Downloading OpenSSL...";
 	 Tkx::update();	 
-	 &grabnverify("bin/ossl.exe");
+	 &grabnverify("bin/$osslexe");
 	 $statusvar = "Downloading OpenVPN...";
 	 Tkx::update();	 
-	 &grabnverify("bin/csvpn.exe");
+	 &grabnverify("bin/$vpnexe");	 
 	 $statusvar = "Finished downloading OpenVPN and it's dependencies.";
 	 Tkx::update();	 
-	 if (-e "..\\bin\\tmp\\csvpn.exe") {
+	 if (-e "..\\bin\\tmp\\$vpnexe") {
 	  Tkx::tk___messageBox(-parent => $mw, -type =>    "ok", 
                                       -message => "Now disconnect.\nWhen you reconnect you will be using OpenVPN $newestver.",
                                       -icon => "info", -title => "cryptostorm.is client");
@@ -1722,8 +1732,62 @@ sub check_version_thread {
 	  Tkx::update();
 	 }	 
 	 if (!$replaceovpn) {
-	  unlink "..\\bin\\tmp\\csvpn.exe";
-	  unlink "..\\bin\\tmp\\csvpn.exe.hash";
+	  unlink "..\\bin\\tmp\\$vpnexe";
+	  unlink "..\\bin\\tmp\\$vpnexe.hash";
+	  rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
+	 }
+	 $statusvar = "Connected.";
+	 Tkx::update();
+    }
+   }
+  }
+  if (($response->content() =~ /LATEST_OVP32:([0-9\.]+)/) && ($bit eq "32")) {
+   my $newestver = $1;
+   chomp($newestver);
+   if ($newestver ne $ovpnver) {
+	$upgradeornot = Tkx::tk___messageBox(-parent => $mw, -type => "yesno", 
+                                         -message => "You are using OpenVPN version $ovpnver and the latest is $1.\nWould you like to upgrade?",
+                                         -icon => "question", -title => "cryptostorm.is client");
+    if ($upgradeornot eq "yes") {
+	 $statusvar = "Downloading OpenVPN...";
+	 Tkx::update();
+	 mkdir("..\\bin\\tmp") if (!-d "..\\bin\\tmp");
+	 $statusvar = "Downloading libeay32.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/libeay32.dll");
+	 $statusvar = "Downloading ssleay32.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/ssleay32.dll");
+	 $statusvar = "Downloading liblzo2-2.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/liblzo2-2.dll");
+	 $statusvar = "Downloading libpkcs11-helper-1.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/libpkcs11-helper-1.dll");
+	 $statusvar = "Downloading msvcr120.dll...";
+	 Tkx::update();	 
+	 &grabnverify("bin/msvcr120.dll");
+	 $statusvar = "Downloading OpenSSL...";
+	 Tkx::update();	 
+	 &grabnverify("bin/$osslexe");
+	 $statusvar = "Downloading OpenVPN...";
+	 Tkx::update();	 
+	 &grabnverify("bin/$vpnexe");	 
+	 $statusvar = "Finished downloading OpenVPN and it's dependencies.";
+	 Tkx::update();	 
+	 if (-e "..\\bin\\tmp\\$vpnexe") {
+	  Tkx::tk___messageBox(-parent => $mw, -type =>    "ok", 
+                                      -message => "Now disconnect.\nWhen you reconnect you will be using OpenVPN $newestver.",
+                                      -icon => "info", -title => "cryptostorm.is client");
+      $replaceovpn = 1;
+	 }
+	 else {	  
+	  $statusvar = "Downloaded OpenVPN failed test(s). Retry Later.";
+	  Tkx::update();
+	 }	 
+	 if (!$replaceovpn) {
+	  unlink "..\\bin\\tmp\\$vpnexe";
+	  unlink "..\\bin\\tmp\\$vpnexe.hash";
 	  rmdir("..\\bin\\tmp") unless &isEmpty("..\\bin\\tmp") > 0;
 	 }
 	 $statusvar = "Connected.";
@@ -1739,9 +1803,9 @@ sub check_version_thread {
                                       -icon => "question", -title => "cryptostorm.is client");
     if ($upgradeornot eq "yes") {
 	 mkdir("..\\bin\\tmp");
-     $statusvar = "Downloading ossl.exe...";
+     $statusvar = "Downloading $osslexe...";
 	 Tkx::update();
-     &grabnverify("bin/ossl.exe");
+     &grabnverify("bin/$osslexe");
 	 $statusvar = "Downloading libeay32.dll...";
 	 Tkx::update();
      &grabnverify("bin/libeay32.dll");
@@ -1761,8 +1825,8 @@ sub check_version_thread {
 	  Tkx::update();
 	 }
 	 if (!$replaceossl) {
-	  unlink "..\\bin\\tmp\\ossl.exe";
-	  unlink "..\\bin\\tmp\\ossl.exe.hash";
+	  unlink "..\\bin\\tmp\\$vpnexe";
+	  unlink "..\\bin\\tmp\\$vpnexe.hash";
 	  unlink "..\\bin\\tmp\\libeay32.dll";
 	  unlink "..\\bin\\tmp\\libeay32.dll.hash";
 	  unlink "..\\bin\\tmp\\ssleay32.dll";
@@ -1809,72 +1873,69 @@ sub check_version_thread {
 
 sub callback {
  my ($data, $response, $protocol) = @_;
+ print $fh $data;
  $final_data .= $data;
- my $spinner = $animation[$counter++];
- $statusvar = "$statusvar " . "[" . $spinner . "]";
- $statusvar =~ s/\s+\[/ \[/;
+ #my $spinner = $animation[$counter++];
+ #$statusvar = "$statusvar " . "[" . $spinner . "]";
+ #$statusvar =~ s/\s+\[/ \[/;
+ $statusvar =~ s/ \[.*//;
+ $statusvar = "$statusvar [" . progress_bar( length($final_data), $total_size ) . "]";
  Tkx::update();
  chop($statusvar); chop($statusvar);
  chop($statusvar); chop($statusvar);
- $counter = 0 if $counter == scalar(@animation); 
-}
-
-sub progress_bar {
- my ( $got, $total, $width, $char ) = @_;
- $width ||= 25; $char ||= '=';
- my $num_width = length $total;
- sprintf "%${num_width}s bytes of %s (%.2f%%)", $char x (($width-1)*$got/$total). '>', $got, $total, 100*$got/+$total;
+ #$counter = 0 if $counter == scalar(@animation); 
 }
 
 sub grabnverify {
+ $cancel->configure(-state => "disabled");
  $final_data = undef;
  my $dir_to_put;
  my $file_to_grab;
  if ($_[0] =~ /^(.*)\/(.*)$/) {
   $dir_to_put = $1;
   $file_to_grab = $2;
- }
- else {
-  &do_error("Something went wrong...");
- }
- if (!-d "..\\bin\\tmp") { mkdir "..\\bin\\tmp"; }
- my $fh;
+ } 
+ if (!-d "..\\bin\\tmp") { mkdir "..\\bin\\tmp"; } 
+ my $ua = LWP::UserAgent->new(  );
  my $url = "http://10.31.33.7/" . $file_to_grab;
- my $ua = LWP::UserAgent->new;
- my $response = $ua->get($url, ':content_cb' => \&callback );
- if ($response->is_success) {
-  binmode STDOUT,':raw';
-  open $fh, '>', "..\\bin\\tmp\\$file_to_grab" or &do_error("\nCannot create file ..\\bin\\tmp\\$file_to_grab because $!\n");
-  binmode $fh;
-  print $fh $final_data;
-  close $fh;
+ my $response = $ua->head($url);
+ my $remote_headers = $response->headers;
+ $total_size = $remote_headers->content_length;
+ $ua = LWP::UserAgent->new;
+ binmode STDOUT,':raw';
+ open $fh, '>', "..\\bin\\tmp\\$file_to_grab" or &do_error("\nCannot create file ..\\bin\\tmp\\$file_to_grab because $!\n");  
+ binmode $fh;
+ $response = $ua->get($url, ':content_cb' => \&callback );  
+ if ($total_size == length($final_data)) {
   $statusvar = "Downloaded $file_to_grab";
   Tkx::update();  
+  close $fh;
  }
  else {
   &do_error("Couldn't download http://10.31.33.7/$file_to_grab: " . $response->status_line . "\n");
+  $cancel->configure(-state => "normal");
   return;
- }
+ } 
  undef $ua;
  undef $response;
  undef $fh;
- undef $final_data;
+ undef $final_data; 
  $ua = LWP::UserAgent->new;
+ binmode STDOUT,':raw';
+ open $fh, '>', "..\\bin\\tmp\\$file_to_grab.hash" or &do_error("\nCannot create file ..\\bin\\tmp\\$file_to_grab because $!\n");
+ binmode $fh;
  $response = $ua->get($url . ".hash", ':content_cb' => \&callback );
  if ($response->is_success) {
-  binmode STDOUT,':raw';
-  open $fh, '>', "..\\bin\\tmp\\$file_to_grab.hash" or &do_error("\nCannot create file ..\\bin\\tmp\\$file_to_grab because $!\n");
-  binmode $fh;
-  print $fh $final_data;
-  close $fh;
   $statusvar = "Downloaded $file_to_grab";
-  Tkx::update();  
+  Tkx::update();
+  close $fh;
  }
  else {
   &do_error("Couldn't download http://10.31.33.7/$file_to_grab.hash: " . $response->status_line . "\n");
+  $cancel->configure(-state => "normal");
   return;
- }
- my $yayornay = `..\\bin\\ossl dgst -sha512 -verify ..\\bin\\widget.pub -signature ..\\bin\\tmp\\$file_to_grab.hash ..\\bin\\tmp\\$file_to_grab`; 
+ } 
+ my $yayornay = `..\\bin\\$osslexe dgst -sha512 -verify ..\\bin\\widget.pub -signature ..\\bin\\tmp\\$file_to_grab.hash ..\\bin\\tmp\\$file_to_grab`;  
  if ($yayornay =~ /Verified OK/) {
   $statusvar = "Downloaded file verified correctly.";  
   Tkx::update();  
@@ -1882,8 +1943,10 @@ sub grabnverify {
  else {
   $statusvar = "File verification failed for $file_to_grab";
   Tkx::update();  
+  &do_error("File verification failed for $file_to_grab: $yayornay");
   unlink("..\\bin\\tmp\\$file_to_grab");
  }
+ $cancel->configure(-state => "normal");
 }
 
 sub dnscrypt {
@@ -2065,12 +2128,26 @@ sub ipv6_off {
  system 1, qq(netsh interface ipv6 set teredo disabled);
  system 1, qq(netsh interface ipv6 isatap set state disabled);
  system 1, qq(netsh interface ipv6 6to4 set state disabled);
+ system 1, qq(netsh advfirewall firewall add rule name="IPv6" protocol=icmpv6 dir=out action=block);
+ system 1, qq(netsh advfirewall firewall add rule name="IPv6" protocol=icmpv6 dir=in action=block);
+ system 1, qq(netsh advfirewall firewall add rule name="IPv6" action=block protocol=41 dir=out);
+ system 1, qq(netsh advfirewall firewall add rule name="IPv6 protocol 43" protocol=43 action=block dir=out);
+ system 1, qq(netsh advfirewall firewall add rule name="IPv6 protocol 44" protocol=44 action=block dir=out);
+ system 1, qq(netsh advfirewall firewall add rule name="IPv6 protocol 58" protocol=58 action=block dir=out);
+ system 1, qq(netsh advfirewall firewall add rule name="IPv6 protocol 59" protocol=59 action=block dir=out);
+ system 1, qq(netsh advfirewall firewall add rule name="IPv6 protocol 60" protocol=60 action=block dir=out);
 }
 
 sub ipv6_on {
  system 1, qq(netsh interface ipv6 set teredo default);
  system 1, qq(netsh interface ipv6 isatap set state default);
  system 1, qq(netsh interface ipv6 6to4 set state default);
+ system 1, qq(netsh advfirewall firewall del rule name="IPv6");
+ system 1, qq(netsh advfirewall firewall del rule name="IPv6 protocol 43");
+ system 1, qq(netsh advfirewall firewall del rule name="IPv6 protocol 44");
+ system 1, qq(netsh advfirewall firewall del rule name="IPv6 protocol 58");
+ system 1, qq(netsh advfirewall firewall del rule name="IPv6 protocol 59");
+ system 1, qq(netsh advfirewall firewall del rule name="IPv6 protocol 60");
 }
 
 sub current_dnscrypt {
@@ -2210,4 +2287,9 @@ sub kill_it {
    }
   }
  }
+}
+
+sub progress_bar {
+ my ($got, $total) = @_;
+ sprintf "%.2f%%", 100*$got/+$total;
 }
