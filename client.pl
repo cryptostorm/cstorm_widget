@@ -16,7 +16,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.16";
+our $VERSION = "3.17";
 use threads;
 use threads::shared;
 use Time::Out qw(timeout);
@@ -49,6 +49,7 @@ use Win32::Process;
 use Win32::Process::Info;
 use Win32::TieRegistry qw(REG_DWORD),(Delimiter => "/");
 use File::Copy;
+use Net::DNS;
 use Net::DNS::Resolver::MSWin32;
 our $self = Win32::AbsPath::Fix "$0";
 our $BUILDVERSION;
@@ -240,7 +241,7 @@ foreach my $key (keys %$L) {
  }
 }
 $widget_update_var = $L->{$lang}{TXT_UPDATE_WHEN1} unless defined($widget_update_var);
-$disp_server = $L->{$lang}{TXT_DEFAULT_SERVER};
+$disp_server = $L->{$lang}{TXT_DEFAULT_SERVER} unless defined($disp_server);
 my $hiddenornot = $L->{$lang}{TXT_HIDE};
 
 if ($randomize_it eq "on") {
@@ -2868,7 +2869,7 @@ sub dns_error {
  my $yerdns = $2;
  my $error = $3;
  my $msg;
- if ($error eq "timeout") {
+ if ($error =~ /timed out/) {
   if ($yerdns eq "1.1.1.1") {
    $msg = $L->{$lang}{ERR_DNS_FINAL_NOTICE1} . "\n" .
           $L->{$lang}{ERR_DNS_FINAL_NOTICE2} . "\n" .
@@ -2879,14 +2880,32 @@ sub dns_error {
    $logbox->delete("1.0","end");
    return "$yerdns:$chosen_node:$error";
   }
-  $msg = $L->{$lang}{ERR_DNS_TIMEOUT1} . "\n" .
-         $L->{$lang}{ERR_DNS_TIMEOUT2} . " $yerdns\n" .
-		 $L->{$lang}{ERR_DNS_TIMEOUT3} . "\n\n";
+  else {
+   if (($killswitch_var eq "on") && ($yerdns ne "127.0.0.1")) {
+    $msg = $L->{$lang}{ERR_DNS_TIMEOUT1} . "\n" .
+	       $L->{$lang}{ERR_DNS_TIMEOUT2} . " $yerdns\n" .
+		   $L->{$lang}{ERR_DNS_KILLSWITCH1} . "\n" .
+		   $L->{$lang}{ERR_DNS_KILLSWITCH2} . "\n\n";
+   }
+   else {
+    $msg = $L->{$lang}{ERR_DNS_TIMEOUT1} . "\n" .
+           $L->{$lang}{ERR_DNS_TIMEOUT2} . " $yerdns\n" .
+           $L->{$lang}{ERR_DNS_TIMEOUT3} . "\n\n";
+   }
+  }
  }
  else {
-  $msg = $L->{$lang}{ERR_DNS_GENERIC1} . "\n" .
-         $L->{$lang}{ERR_DNS_GENERIC2} . " $yerdns\n" .
-		 $L->{$lang}{ERR_DNS_GENERIC3} . " $error\n\n";
+  if (($killswitch_var eq "on") && ($yerdns ne "127.0.0.1")) {
+   $msg = $L->{$lang}{ERR_DNS_TIMEOUT1} . "\n" .
+	      $L->{$lang}{ERR_DNS_TIMEOUT2} . " $yerdns\n" .
+	      $L->{$lang}{ERR_DNS_KILLSWITCH1} . "\n" .
+	      $L->{$lang}{ERR_DNS_KILLSWITCH2} . "\n\n";
+  }
+  else {
+   $msg = $L->{$lang}{ERR_DNS_GENERIC1} . "\n" .
+          $L->{$lang}{ERR_DNS_GENERIC2} . " $yerdns\n" .
+	      $L->{$lang}{ERR_DNS_GENERIC3} . " $error\n\n";
+  }
  }
  $msg .= $L->{$lang}{QUESTION_DNSFIX} . "\n";
  if ($dnscrypt_var eq "off") {
@@ -2943,38 +2962,37 @@ sub preresolve {
  my $query;
  if ($dnscrypt_var eq "on") {
   if ($cfdns) {
-   $resolver = new Net::DNS::Resolver::MSWin32(nameservers => ["1.1.1.1"]);
+   $resolver = Net::DNS::Resolver->new(nameservers => ["1.1.1.1"]);
    $cfdns=0;
   }
   else {
-   $resolver = new Net::DNS::Resolver::MSWin32(nameservers => ["127.0.0.1"])
+   $resolver = Net::DNS::Resolver->new(nameservers => ["127.0.0.1"])
   }
  }
  else {
-  $resolver = new Net::DNS::Resolver::MSWin32;
+  $resolver = Net::DNS::Resolver->new;
  }
  $resolver->tcp_timeout(7);
  $resolver->udp_timeout(7);
  my @yerdns = $resolver->nameservers();
- my $handle = $resolver->bgsend("127.0.0.1");
- while ($resolver->bgbusy($handle)) {
+ my $handle = $resolver->bgsend("$chosen_node");
+ until ($resolver->bgisready($handle)) {
   Tkx::update();
  }
  my $packet = $resolver->bgread($handle);
  if (defined($packet)) {
-  my $query = $resolver->search("$chosen_node");
-  if ($query) {
-   foreach my $rr ($query->answer) {
-    Tkx::update();
-    next unless $rr->type eq "A";
-    push(@resolved_ips,$rr->address);
-   }
+  foreach my $rr ($packet->answer) {
+   next unless $rr->type eq "A";
+   push(@resolved_ips,$rr->rdatastr);
+  }
+ }
+ else {
+  if ($resolver->errorstring =~ /corrupt wire-format data/) {
+   &preresolve($chosen_node);
+   return;
   }
   else {
    return &dns_error("$chosen_node:" . $yerdns[0] . ":" . $resolver->errorstring);
   }
- }
- else {
-  return &dns_error("$chosen_node:" . $yerdns[0] . ":timeout");
  }
 }
