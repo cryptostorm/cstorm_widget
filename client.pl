@@ -16,7 +16,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.17";
+our $VERSION = "3.18";
 use threads;
 use threads::shared;
 use Time::Out qw(timeout);
@@ -99,7 +99,6 @@ my $cclientfile = '..\user\client.crt';
 my $clientkey  = '..\user\client.key';
 my $nodelistfile = '..\user\nodelist.txt';
 my $c = 0;
-my $alreadylong = 0;
 my $server = "";
 my $widget_update_var;
 my ( $line, $VPNfh, $thread, $updatethread, $bit, $tapexe, $vpnexe, $osslexe, $dnscexe, $h);
@@ -217,15 +216,6 @@ if (-e "$authfile") {
  }
 }
 
-#`reg query "hklm\system\controlset001\control\nls\language" /v Installlanguage`
-#returns:
-#
-#HKEY_LOCAL_MACHINE\system\controlset001\control\nls\language
-#    Installlanguage    REG_SZ    0409
-#
-#somewhere there's a list that says 0409 = English, 0407 = German, 040C = French, 0C0A = Spanish, etc.
-#could be useful for auto-loading non-English langs.
-#
 use Config::INI::Reader;
 my $L = Config::INI::Reader->read_file('..\user\lang.ini');
 my @langs;
@@ -404,12 +394,8 @@ $o_worldimage = $o_frame1->new_ttk__label(-anchor => "nw", -justify => "center",
 $back = $o_frame1->new_ttk__button(-text => $L->{$lang}{TXT_BACK}, -command => \&backtomain);
 $cw->g_bind("<Escape>", sub { $back->invoke(); });
 Tkx::update('idletasks');
-$width  = Tkx::winfo('reqwidth',  $cw);
-$height = Tkx::winfo('reqheight', $cw);
-$width += 100;
-$x = int((Tkx::winfo('screenwidth',  $cw)  - $width  ) / 2);
-$y = int((Tkx::winfo('screenheight', $cw)  - $height ) / 2);
-$o_tabs = $cw->new_ttk__notebook(-height => $height, -width => $width);
+
+$o_tabs = $cw->new_ttk__notebook(-height => 0, -width => 0);
 $o_innerframe1 = $o_tabs->new_ttk__frame();
 $o_innerframe2 = $o_tabs->new_ttk__frame();
 $o_innerframe3 = $o_tabs->new_ttk__frame();
@@ -441,7 +427,7 @@ $chk_splash->g_grid(-column => 0, -row => 1, -sticky => "w");
 $chk_autocon->g_grid(-column => 0, -row => 2, -sticky => "w");
 $chk_autorun->g_grid(-column => 0, -row => 3, -sticky => "w");
 $chk_update->g_grid(-column => 0, -row => 4, -sticky => "w");
-$widget_update->g_grid(-column => 0, -row => 4, -sticky => "e");
+$widget_update->g_grid(-column => 1, -row => 4, -sticky => "w");
 if ($#langs > 0) {
  $lbl_lang->g_grid(-column => 0, -row => 6, -sticky => "w");
  $lang_update->g_grid(-column => 0, -row => 6, -sticky => "e");
@@ -523,22 +509,15 @@ $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_ENABLE_ADBLOCK}, -
 
 $o_frame1->g_grid(-column => 0, -row => 0, -sticky => "nswe");
 $o_worldimage->g_grid(-column => 0, -row => 0);
-$back->g_grid(-column => 0, -row => 1, -sticky => "nswe");
+$back->g_grid(-column => 0, -row => 2, -sticky => "nswe");
 $o_tabs->g_grid(-column => 1, -row => 0, -sticky => "nswe");
 
 Tkx::update('idletasks');
-$width  = Tkx::winfo('reqwidth',  $cw);
-$height = Tkx::winfo('reqheight', $cw);
-$height = $height - 20;
-$width += 200;
-$x = int((Tkx::winfo('screenwidth',  $cw)  - $width  ) / 2);
-$y = int((Tkx::winfo('screenheight', $cw)  - $height ) / 2);
-$cw->g_wm_geometry("+$x+$y");
 
 
 $frame1 = $mw->new_ttk__frame(-relief => "flat");
-$worldimage = $frame1->new_ttk__label(-anchor => "center", -justify => "center", -image => 'mainicon', -compound => 'top', -text => "Token:", -font => "logo_font");
-$errorimage = $frame1->new_ttk__label(-anchor => "center", -justify => "center", -image => 'erroricon', -compound => 'top', -text => "Token:", -font => "logo_font");
+$worldimage = $frame1->new_ttk__label(-anchor => "center", -justify => "center", -image => 'mainicon', -compound => 'top', -text => "\n\nToken:", -font => "logo_font");
+$errorimage = $frame1->new_ttk__label(-anchor => "center", -justify => "center", -image => 'erroricon', -compound => 'top', -text => "\n\nToken:", -font => "logo_font");
 $userlbl = $frame1->new_tk__text;
 $userlbl->tag(qw/configure link1 -foreground blue -underline 1/);
 $userlbl->tag(qw/configure link2 -foreground blue -underline 1/);
@@ -711,9 +690,9 @@ $server_textbox->g_bind("<<ComboboxSelected>>", sub {
  }
 });
 $progress = $mw->new_ttk__frame(-padding => "3 0 0 0", -relief => "flat");
-my $pbarlen = Tkx::winfo('reqwidth',  $mw) * 2 + Tkx::winfo('reqwidth',  $connect);
-$pbar = $progress->new_ttk__progressbar (-orient => "horizontal", -length => $pbarlen, -mode => "determinate", -variable => \$pbarval)->g_grid (-column => 0, -row => 0, -sticky => "we");
-$statuslbl = $mw->new_ttk__label(-textvariable => \$statusvar, -padding => "0 0 0 0", -relief => "sunken", -width => 64);
+my $pbarlen = 0;
+$pbar = $progress->new_ttk__progressbar(-orient => "horizontal", -length => $pbarlen, -mode => "determinate", -variable => \$pbarval)->g_grid (-column => 0, -row => 0, -sticky => "we");
+$statuslbl = $mw->new_ttk__label(-textvariable => \$statusvar, -padding => "0 0 0 0", -relief => "sunken", -width => 5);
 $frame4 = $mw->new_ttk__frame(-relief => "flat");
 $logbox = $frame4->new_tk__text(-width => 40, -height => 14, -undo => 1, -state => "disabled", -bg => "black", -fg => "grey");
 $logbox->tag_configure("goodline", -foreground => "black", -background => "green", -font => "helvetica 14 bold", -relief => "raised");
@@ -748,7 +727,7 @@ $save->g_grid(-column => 4, -row => 3, -sticky => "w");
 $server_textbox->g_grid(-column => 0, -row => 2, -sticky => "nw");
 $update->g_grid(-column => 4, -row => 2, -sticky => "w");
 $frame3->g_grid(-column => 0, -row => 0, -sticky => "se");
-$progress->g_grid (-column => 0, -row => 2, -sticky => "we");
+$progress->g_grid(-column => 0, -row => 2, -sticky => "we");
 $statuslbl->g_grid(-column => 0, -row => 1, -sticky => "w");
 $options->g_grid(-column => 1, -row => 1, -sticky => "e");
 $connect->g_grid(-column => 1, -row => 2, -sticky => "nswe");
@@ -757,10 +736,20 @@ $password = "93b66e7059176bbfa418061c5cba87dd";
 Tkx::update('idletasks');
 $width  = Tkx::winfo('reqwidth',  $mw);
 $height = Tkx::winfo('reqheight', $mw);
+my $fullheight = $height * 2;
+my %stupidstrictrefs = (
+ Tkx_pbar => \&{"Tkx::.f4.p_configure"},
+ Tkx_sbar => \&{"Tkx::.l_configure"},
+ Tkx_notb => \&{"Tkx::.t.n_configure"},
+ Tkx_logb => \&{"Tkx::.f5.t_configure"}
+);
+&{ $stupidstrictrefs{'Tkx_pbar'} }(-length => $width);
+&{ $stupidstrictrefs{'Tkx_sbar'} }(-width => ($width / 60));
+&{ $stupidstrictrefs{'Tkx_notb'} }(-width => $width, -height => $height);
 $x = int((Tkx::winfo('screenwidth',  $mw)  - $width  ) / 2);
 $y = int((Tkx::winfo('screenheight', $mw)  - $height ) / 2);
 $mw->g_wm_geometry("+$x+$y");
-$pbarlen = $width;
+Tkx::update('idletasks');
 
 if ((-e "..\\user\\all.wfw") || ($killswitch_var eq "on")) {
  $rt = `netsh advfirewall firewall show rule name="cryptostorm"`;
@@ -1010,24 +999,6 @@ sub check_bit {
  }
 }
 
-sub longer {
- if (!$alreadylong) {
-  $frame4->g_grid(-column => 0, -row => 3, -sticky => "nswe");
-  $logbox->g_grid(-column => 0, -row => 4, -sticky => "nwes");
-  $scroll->g_grid(-column => 1, -row => 4, -sticky => "ns");
-  $h = $_[0];
-  if ($h == 450) {
-   $h -= 36;
-  }
-  $width  = Tkx::winfo('reqwidth',  $mw);
-  $height = Tkx::winfo('reqheight', $mw);
-  $x = int((Tkx::winfo('screenwidth',  $mw) / 2) - ($width / 2));
-  $y = int((Tkx::winfo('screenheight', $mw) / 2) - ($h / 2));
-  $mw->g_wm_geometry($width . "x" . $h . "+" . $x . "+" . $y);
-  Tkx::update();
- }
-}
-
 sub step_pbar {
  &blue_derp unless $statusvar eq $L->{$lang}{TXT_CONNECTED};
  Tkx::update();
@@ -1128,10 +1099,13 @@ sub connectt {
  &step_pbar();
  &check_tapi();
  my $stoopid;
- for ($stoopid=0;$stoopid<=10;$stoopid++) {
-  longer(25*$stoopid+200);
- }
- $alreadylong = 1;
+ $frame4->g_grid(-column => 0, -row => 3, -sticky => "nswe");
+ $logbox->g_grid(-column => 0, -row => 4, -sticky => "nwes");
+ $scroll->g_grid(-column => 1, -row => 4, -sticky => "ns");
+ Tkx::update('idletasks');
+ my $x = int((Tkx::winfo('screenwidth',  $mw) / 2) - (Tkx::winfo('reqwidth',  $mw) / 2));
+ my $y = int((Tkx::winfo('screenheight', $mw) / 2) - (Tkx::winfo('reqheight', $mw) / 2)); 
+ $mw->g_wm_geometry(Tkx::winfo('reqwidth',  $mw) . "x" . Tkx::winfo('reqheight', $mw) . "+" . $x . "+" . $y);
  Tkx::update();
  &step_pbar();
  $statusvar = $L->{$lang}{TXT_LOGGING_IN} . "...";
@@ -1350,7 +1324,10 @@ sub connectt {
  }
  $statusvar = $L->{$lang}{TXT_CONNECTING} . "...";
  Tkx::update();
- $pid = open $VPNfh, "echo $manpass|..\\bin\\$vpnexe $vpn_args --config $vpncfgfile --management 127.0.0.1 $manport stdin|";
+ open(MANPASS,">>..\\user\\manpass.txt");
+ print MANPASS "$manpass\n";
+ close(MANPASS);
+ $pid = open $VPNfh, "..\\bin\\$vpnexe $vpn_args --config $vpncfgfile --management 127.0.0.1 $manport ..\\user\\manpass.txt|";
  step_pbar();
  Tkx::update(); 
  $thread = threads->new( \&read_out, $VPNfh );
@@ -1530,6 +1507,7 @@ sub read_out {
 sub do_exit {
  my $idunno = "whatever"; 
  Tkx::update();
+ unlink("..\\user\\manpass.txt");
  if (&isoncs > 0) {
   Tkx::update();
   $idunno = Tkx::tk___messageBox(-type =>    "yesno", 
@@ -1557,6 +1535,7 @@ sub do_exit {
     Tkx::update();
     while (kill(0,$stunpid) == 1) {
 	 Tkx::update();
+	 select(undef,undef,undef,0.01);
 	}
    }
    Tkx::update();
@@ -1820,19 +1799,17 @@ sub update_node_list {
  }
 }
 
-sub do_options {
- my $width  = Tkx::winfo('reqwidth',  $cw);
- my $height = Tkx::winfo('reqheight', $cw);
- $height = $height - 20;
- $width += 200;
- my $x = int((Tkx::winfo('screenwidth',  $cw)  - $width  ) / 2);
- my $y = int((Tkx::winfo('screenheight', $cw)  - $height ) / 2);
+sub do_options { 
  if ($saveoption eq "off") {
   $autocon_var = "off";
  } 
  $mw->g_wm_deiconify();
  $mw->g_wm_withdraw();
- $cw->g_wm_geometry("+$x+$y");
+ my $width  ||= Tkx::winfo('reqwidth',  $cw);
+ my $height ||= Tkx::winfo('reqheight', $cw);
+ my $x = int((Tkx::winfo('screenwidth',  $cw) / 2) - ($width / 2));
+ my $y = int((Tkx::winfo('screenheight', $cw) / 2) - ($height / 2)); 
+ $cw->g_wm_geometry($width . "x" . $height . "+" . $x . "+" . $y);
  $cw->g_raise();
  $cw->g_wm_deiconify();
  $cw->g_focus();  
