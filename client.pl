@@ -17,7 +17,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.33";
+our $VERSION = "3.34";
 use threads;
 use threads::shared;
 use Time::Out qw(timeout);
@@ -1492,7 +1492,9 @@ sub connectt {
  if ($ts_var eq "on") {
   $vpn_args .= ' --dhcp-option DNS 10.31.33.7 ';
  }
- $vpn_args .= ' --machine-readable-output ';
+ if ($bit eq "64") {
+  $vpn_args .= ' --machine-readable-output ';
+ }
  $vpn_args .= ' --dev-node cryptostorm ';
  #$vpn_args .= ' --route-delay 5 5 ';
  $statusvar = $L->{$lang}{TXT_CONNECTING} . "...";
