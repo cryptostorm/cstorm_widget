@@ -17,7 +17,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.34";
+our $VERSION = "3.36";
 use threads;
 use threads::shared;
 use Time::Out qw(timeout);
@@ -1790,6 +1790,12 @@ sub do_exit {
     Tkx::update();
 	&dnscrypt(0);
    }
+   if (-e "..\\user\\mydns.txt") {
+    $statusvar = $L->{$lang}{TXT_DNS_RESTORE} . "...";
+    Tkx::update();
+	&restore_dns;
+	unlink "..\\user\\mydns.txt";
+   }
    if ((-e "..\\user\\all.wfw") || ($killswitch_var eq "on")) {
     $rt = `netsh advfirewall firewall show rule name="cryptostorm"`;
     if ($rt =~ /cryptostorm/) {
@@ -1800,6 +1806,8 @@ sub do_exit {
      if ($tokillornot eq "yes") {
 	  Tkx::update();
       &killswitch_off;
+	  $killswitch_var = "off";
+	  &savelogin;
 	  Tkx::update();
      }
     }
@@ -1813,7 +1821,7 @@ sub do_exit {
     if($_->{Name} =~ /^obfsproxy.exe$/) {
      Win32::Process::KillProcess ($_->{ProcessId}, 0);
     }
-	if($_->{Name} =~ /^$vpnexe$/) {
+	if($_->{Name} =~ /csvpn/) {
      Win32::Process::KillProcess ($_->{ProcessId}, 0);
     }
    }
@@ -1890,7 +1898,7 @@ sub do_exit {
     if($_->{Name} =~ /^obfsproxy.exe$/) {
      Win32::Process::KillProcess ($_->{ProcessId}, 0);
     }
-	if($_->{Name} =~ /^$vpnexe$/) {
+	if($_->{Name} =~ /csvpn/) {
      Win32::Process::KillProcess ($_->{ProcessId}, 0);
     }
    }
@@ -1927,7 +1935,7 @@ sub do_exit {
     my $pi = Win32::Process::Info->new;
     my @info = $pi->GetProcInfo();
     foreach(@info) {
-     if($_->{Name} =~ /^$vpnexe$/) {
+     if($_->{Name} =~ /csvpn/) {
 	  &kill_it;
       Win32::Process::KillProcess ($_->{ProcessId}, 0);
      }	
@@ -1970,7 +1978,7 @@ sub check_tapi {
  my @cmd;
  @cmd = `..\\bin\\$vpnexe --show-adapters 2>&1`;
  if (!defined($cmd[1])) {
-  my $tap_install = system 1,qq(..\\bin\\tap-windows-9.21.2.exe /S);
+  my $tap_install = system("..\\bin\\tap-windows-9.21.2.exe /S");
   if (defined($tap_install)) {
    $statusvar = $L->{$lang}{TXT_TAP_INSTALLING} . "...";
    Tkx::update();
@@ -1979,13 +1987,9 @@ sub check_tapi {
     select(undef,undef,undef,0.01);
    }
   }
-  my $ren_tap = system 1,qq(..\\bin\\rentap.exe 2>&1);
-  if (defined($ren_tap)) {
-   $statusvar = $L->{$lang}{TXT_TAP_INSTALLING} . "...";
-   Tkx::update();
-   while (kill(0,$ren_tap) == 1) {
-    Tkx::update();
-    select(undef,undef,undef,0.01);
+  if (`..\\bin\\$vpnexe --show-adapters|findstr "{"` =~ /^'(.*)' ({.*})$/) {
+   if ($1 ne "cryptostorm") {
+    $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/ControlSet001/Control/Network/{4D36E972-E325-11CE-BFC1-08002BE10318}/$2/Connection/Name"}="cryptostorm";
    }
   }
   undef @cmd;
@@ -2007,7 +2011,7 @@ sub check_tapi {
  else {
   $statusvar = $L->{$lang}{TXT_TAP_MULTI};
   Tkx::update();
-  system("..\\bin\\$tapexe remove tap0901 2>&1");
+  system ("..\\bin\\$tapexe remove tap0901 2>&1");
   Tkx::update();
   undef @cmd;
   &check_tapi;
@@ -2522,19 +2526,22 @@ sub dnscrypt {
    $dnsinc++;
   }
   if (($nodns eq "0") || ($nodns eq "yes")) {
-   if (`..\\bin\\$dnscexe -service install 2>&1` =~ /(Installed as a service|service dnscrypt-proxy already)/) {
-    if (`..\\bin\\$dnscexe -service start 2>&1` =~ /(Service started|already running)/) {
-     &set_dns_to_dnscrypt; 	
-	 return 0;
+   if ($bit eq "64") {
+    if (`..\\bin\\$dnscexe -service install 2>&1` =~ /(Installed as a service|service dnscrypt-proxy already)/) {
+     if (`..\\bin\\$dnscexe -service start 2>&1` =~ /(Service started|already running)/) {
+      &set_dns_to_dnscrypt; 	
+	  return 0;
+     }
+	 return -1;
     }
     else {
-	 &do_error("&dnscrypt2: $!\n");
      return -1;
     }
    }
-   else {
-    &do_error("&dnscrypt: $!\n");
-    return -1;
+   if ($bit eq "32") {
+    system 1,qq(..\\bin\\$dnscexe);
+    &set_dns_to_dnscrypt;
+    return 0;
    }
   }
  }
@@ -2806,7 +2813,6 @@ sub killswitch_on {
  $statusvar = "Kill switch - " . $L->{$lang}{TXT_KILLSWITCH_GET_VPN} . "...";
  Tkx::update();
  my $vpn_ips;
- my @whitelist;
  for (@nodes) {
   Tkx::update();
   if (/^.*:.*:windows:(.*)$/) {
@@ -2826,15 +2832,34 @@ sub killswitch_on {
    Tkx::update();
    for (@addresses) {
     Tkx::update();
-    push(@whitelist,"$_");
+	$vpn_ips .= "$_,";
    }
   }
  }
- @addresses = uniq(@whitelist);
- for (@addresses) {
+ my @misc = ('cryptofree:cryptofree:windows:cryptofree.cstorm.is','balancer:balancer:windows:balancer.cstorm.is');
+ for (@misc) {
   Tkx::update();
-  $vpn_ips .= "$_,";
- }
+  if (/^.*:.*:windows:(.*)$/) {
+   $statusvar = "Kill switch - " . $L->{$lang}{TXT_RESOLVING} . " $1...";
+   Tkx::update();
+   @addresses = gethostbyname("$1") or &do_error($L->{$lang}{ERR_CANNOT_RESOLVE} . " $1: $!\n");
+   Tkx::update();
+   if ($#addresses == -1) {
+    $killswitch_var = "off";
+    $update->configure(-state => "normal");
+    $options->configure(-state => "normal");
+    $connect->configure(-state => "normal");
+    $cancel->configure(-state => "normal");
+    return;
+   }
+   @addresses = map { inet_ntoa($_) } @addresses[4 .. $#addresses];
+   Tkx::update();
+   for (@addresses) {
+    Tkx::update();
+	$vpn_ips .= "$_,";
+   }
+  }
+ } 
  Tkx::update();
  $vpn_ips =~ s/,$//;
  my $ddns_ips;
@@ -2914,10 +2939,18 @@ sub killswitch_on {
   $statusvar = "Kill switch - allow DHCP out";
   Tkx::update();
  }
- $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=out action=allow remoteip=$vpn_ips`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - allow VPN IPs";
-  Tkx::update();
+ my @vpn_ips_arr = split(/,/,$vpn_ips);
+ $vpn_ips = '';
+ for (my $i=0; $i <= $#vpn_ips_arr; $i++) {
+  $vpn_ips .= $vpn_ips_arr[$i] . ",";
+  if ($i % 100 == 0) {
+   $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=out action=allow remoteip=$vpn_ips`;
+   if ($rt =~ /Ok./) {
+    $statusvar = "Kill switch - allow VPN IPs";
+    Tkx::update();
+   }
+   $vpn_ips = '';   
+  }
  }
  $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=out action=allow remoteip=$ddns_ips`;
  if ($rt =~ /Ok./) {
