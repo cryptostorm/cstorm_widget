@@ -1,13 +1,13 @@
 #!/usr/bin/perl #-d:Trace
 #$Devel::Trace::TRACE = 1;
 #BEGIN {
-# my $trace_file = $ENV{TRACE_FILE} // "mytrace.$$.txt";
+# my $trace_file = "\\Program Files (x86)\\Cryptostorm Client\\user\\mytrace.$$.txt";
 # print STDERR "Saving trace to $trace_file\n";
 # open my $fh, '>>', $trace_file;
 # sub DB::DB {
 #  my ($package, $file, $line ) = caller;
 #  my $code = \@{"::_<$file"};
-#  print $fh "[@{[time]}] $file $line $code->[$line]";
+#  print $fh "[@{[time]}] $file $line $code->[$line]" if ($file =~ /client.pl/);
 #  print "[@{[time]}] $file $line $code->[$line]" if ($file =~ /client.pl/);
 # }
 #}
@@ -17,7 +17,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.40";
+our $VERSION = "3.42";
 use threads;
 use threads::shared;
 use Time::Out qw(timeout);
@@ -46,7 +46,9 @@ use Win32::AbsPath;
 use Win32::File::VersionInfo;
 use Win32::Process;
 use Win32::Process::Info;
-use Win32::TieRegistry qw(REG_DWORD),(Delimiter => "/");
+use Win32::Clipboard;
+my $clip = Win32::Clipboard();
+use Win32::TieRegistry qw(REG_DWORD REG_MULTI_SZ REG_SZ),(Delimiter => "/");
 $Registry->{'HKEY_CURRENT_USER/Software/Cryptostorm/'} = {};
 my $regkey = $Registry->{'HKEY_CURRENT_USER/Software/Cryptostorm/'};
 use File::Copy;
@@ -55,7 +57,7 @@ use Net::DNS::Resolver::MSWin32;
 our $self = Win32::AbsPath::Fix "$0";
 our $BUILDVERSION;
 our ($ovpnver, $osslver, $replaceossl, $replaceovpn, $verstuff, $final_data, $counter, $doupgrade, $total_size, $fh, $dnsleak_var, $dncstat);
-our $manport : shared;
+my $manport;
 our ($dnsfix1,$dnsfix2, $startwinfire,$dnsfix3,$fixdns_btn);
 our @animation = qw( \ | / -- );
 our @output;
@@ -112,14 +114,21 @@ my $nodelistfile = '..\user\nodelist.txt';
 my $c = 0;
 my $server = "";
 my $widget_update_var;
-my $VPNfh;
-my ( $line, $thread, $updatethread, $bit, $tapexe, $vpnexe, $osslexe, $dnscexe, $h);
+our $VPNfh;
+my $default_resolver = new Net::DNS::Resolver;
+my @default_ns = $default_resolver->nameservers();
+my $dnscrypt_resolver = new Net::DNS::Resolver(nameservers => ["127.0.0.1"]);
+my @dnscrypt_ns = $dnscrypt_resolver->nameservers();
+my $cloudflare_resolver = new Net::DNS::Resolver(nameservers => ["1.1.1.1"]);
+my @cloudflare_ns = $cloudflare_resolver->nameservers();
+my ( $ovpnline, $updatethread, $bit, $tapexe, $vpnexe, $osslexe, $dnscexe, $h);
 my ($frame1, $frame2, $frame3, $frame4, $saveoption, $password, $userlbl, $passlbl, $connect, $cancel, $pass,
     $save, $progress, $pbar, $pbarval, $statuslbl, $statusvar, $token_textbox, $token, $worldimage, $logbox,
 	$scroll, $errorimage, $server_textbox, $disp_server, $tripimage, $server_host, $update, $menu, $send, $options);
 my ($autocon, $autocon_var, $autorun, $autorun_var, $o_frame1, $o_worldimage, $back, $o_tabs, $o_innerframe1,
     $o_innerframe2, $o_innerframe3, $o_innerframe4, $derp);
 my ($o_thread3, $o_thread4);
+my $kcxt=0;
 my $autosplash_var = "";
 my $dnscrypt_var = "on";
 my $killswitch_var = "off";
@@ -138,6 +147,7 @@ my $dns_choice_opt = "off";
 our $fav_combo;
 our $fav_button;
 our @msgs;
+our $thread;
 my @tmparray;
 my $tmpline = "";
 my $vpn_args = "";
@@ -163,14 +173,16 @@ if (-e $ENV{'TEMP'} . '\config.ini') {
  unlink($ENV{'TEMP'} . '\config.ini');
 }
 my $nostun_var = "on";
-my $ipv6_var = "on";
+my $noipv6_var = "on";
+my $tmp_noipv6_var;
+my $tmp_nostun_var;
+my $tmp_dnscrypt_var;
 my $ecc_var = "on";
 our $port_var = "443";
 my $proto_var = "UDP";
 my @protos = ('UDP', 'TCP');
 my @eccs = ('secp521r1','Ed25519','Ed448');
 my $ecc_sel = 'secp521r1';
-my $selected_adv_opt1 = "1.2";
 my $selected_adv_opt2 = "adaptive";
 my $selected_adv_opt3 = "adaptive";
 my $selected_adv_opt4 = "0.0.0.0";
@@ -194,7 +206,7 @@ if (-e "$authfile") {
    $nostun_var = $1;
   }
   if (/^noipv6=(.*)$/) {
-   $ipv6_var = $1;
+   $noipv6_var = $1;
   }
   if (/^dnsleak=(.*)$/) {
    $dnsleak_var = $1;
@@ -247,9 +259,6 @@ if (-e "$authfile") {
   }
   if (/^favs=(.*)$/) {
    @favs = split(/,/,$1);
-  }
-  if (/^tls=([0-9\.]+)$/) {
-   $selected_adv_opt1 = $1;
   }
   if (/^ip-win32=(.*)$/) {
    $selected_adv_opt2 = $1;
@@ -305,7 +314,6 @@ if ($randomize_it eq "on") {
   $port_var = $port_var + int(rand(1000 - 5));
  }
 }
-
 Tkx::package_require('img::png');
 Tkx::package_require("style");
 Tkx::package_require('tooltip');
@@ -572,18 +580,6 @@ if ($#favs > -1) {
  })->g_pack();
 }
 my $lbl_top = $o_innerframe4->new_ttk__label(-text => "Advanced options\n");
-my @adv_opts1 = ('1.2','1.3');
-$selected_adv_opt1 = $adv_opts1[0];
-my $adv_label1;
-my $adv_combo1;
-if ($bit eq "32") {
- $adv_label1 = $o_innerframe4->new_ttk__label(-text => "TLS version: ", -state => "disabled");
- $adv_combo1 = $o_innerframe4->new_ttk__combobox(-textvariable => \$selected_adv_opt1, -values => \@adv_opts1, -width => 14, -state => "disabled");
-}
-if ($bit eq "64") {
- $adv_label1 = $o_innerframe4->new_ttk__label(-text => "TLS version: ");
- $adv_combo1 = $o_innerframe4->new_ttk__combobox(-textvariable => \$selected_adv_opt1, -values => \@adv_opts1, -width => 14, -state => "readonly");
-}
 my @adv_opts2 = ('adaptive','ipapi','netsh');
 $selected_adv_opt2 = $adv_opts2[0];
 my $adv_label2 = $o_innerframe4->new_ttk__label(-text => "--ip-win32:  ");
@@ -740,24 +736,22 @@ my $adv_socks_check = $o_innerframe4->new_ttk__checkbutton(-text => "Use SOCKS p
  }
 });
 $lbl_top->g_grid(-column => 0, -row => 0);
-$adv_label1->g_grid(-column => 0, -row => 1);
-$adv_combo1->g_grid(-column => 1, -row => 1);
-$adv_label2->g_grid(-column => 0, -row => 2);
-$adv_combo2->g_grid(-column => 1, -row => 2);
-$adv_label3->g_grid(-column => 0, -row => 3);
-$adv_combo3->g_grid(-column => 1, -row => 3);
-$adv_label4->g_grid(-column => 0, -row => 4);
-$adv_combo4->g_grid(-column => 1, -row => 4);
-$adv_socks_check->g_grid(-column => 0, -row => 5);
-$adv_socks_ip_lbl->g_grid(-column => 0, -row => 6);
-$adv_socks_ip_txt->g_grid(-column => 1, -row => 6);
-$adv_socks_port_lbl->g_grid(-column => 2, -row => 6);
-$adv_socks_port_txt->g_grid(-column => 3, -row => 6);
-$adv_socks_user_lbl->g_grid(-column => 0, -row => 7);
-$adv_socks_user_txt->g_grid(-column => 1, -row => 7);
-$adv_socks_pass_lbl->g_grid(-column => 2, -row => 7);
-$adv_socks_pass_txt->g_grid(-column => 3, -row => 7);
-$adv_socks_noauth_check->g_grid(-column => 0, -row => 8, -columnspan => 2);
+$adv_label2->g_grid(-column => 0, -row => 1);
+$adv_combo2->g_grid(-column => 1, -row => 1);
+$adv_label3->g_grid(-column => 0, -row => 2);
+$adv_combo3->g_grid(-column => 1, -row => 2);
+$adv_label4->g_grid(-column => 0, -row => 3);
+$adv_combo4->g_grid(-column => 1, -row => 3);
+$adv_socks_check->g_grid(-column => 0, -row => 4);
+$adv_socks_ip_lbl->g_grid(-column => 0, -row => 5);
+$adv_socks_ip_txt->g_grid(-column => 1, -row => 5);
+$adv_socks_port_lbl->g_grid(-column => 2, -row => 5);
+$adv_socks_port_txt->g_grid(-column => 3, -row => 5);
+$adv_socks_user_lbl->g_grid(-column => 0, -row => 6);
+$adv_socks_user_txt->g_grid(-column => 1, -row => 6);
+$adv_socks_pass_lbl->g_grid(-column => 2, -row => 6);
+$adv_socks_pass_txt->g_grid(-column => 3, -row => 6);
+$adv_socks_noauth_check->g_grid(-column => 0, -row => 7, -columnspan => 2);
 
 $fixdns_btn = $o_innerframe4->new_ttk__button(-text => "Reset DNS to DHCP", -command => \&fix_dns )->g_grid(-column => 2, -row => 1, -rowspan => 4, -columnspan => 2, -stick => "nswe");
 
@@ -805,10 +799,10 @@ if ($bit eq "32") {
 my $i3_blank_lbl = $o_innerframe3->new_ttk__label(-text => "\n");
 my $ecc_lbl = $o_innerframe3->new_ttk__label(-text => "ECC curve");
 my $ecc_sel_opt = $o_innerframe3->new_ttk__combobox(-textvariable => \$ecc_sel, -values => \@eccs, -width => 9, -state=> $ecc_state);
-my $ipv6_disable_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_DISABLE_IPV6}, -variable => \$ipv6_var, -onvalue => "on", -offvalue => "off");
+my $ipv6_disable_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_DISABLE_IPV6}, -variable => \$noipv6_var, -onvalue => "on", -offvalue => "off");
 my $stun_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_STUN_LEAK}, -variable => \$nostun_var, -onvalue => "on", -offvalue => "off");
 my $dnsleak_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_DNS_LEAK}, -variable => \$dnsleak_var, -onvalue => "on", -offvalue => "off");
-my $dnscrypt_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_ENABLE_DNSCRYPT}, -variable => \$dnscrypt_var, -onvalue => "on", -offvalue => "off");
+my $dnscrypt_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_ENABLE_DNSCRYPT}, -variable => \$dnscrypt_var, -onvalue => "on", -offvalue => "off", -state => (($dnscrypt_var eq "local") ? "disabled" : "normal"));
 my $killswitch_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_ENABLE_KILLSWITCH}, -variable => \$killswitch_var, -onvalue => "on", -offvalue => "off");
 my $adblock_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_ENABLE_ADBLOCK}, -variable => \$ts_var, -onvalue => "on", -offvalue => "off");
 
@@ -869,7 +863,7 @@ Tkx::bind($token_textbox,"<3>", [ sub {
   Tkx::clipboard("clear");
   Tkx::clipboard("append",$token);
  }]);
- my $clipboard = Tkx::clipboard("get") || 0;
+ my $clipboard = $clip->Get();
  $popup_menu->add_command(-label => $L->{$lang}{TXT_PASTE}, -state => ((($clipboard =~ /^([a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5})$/) ||
                                                                         ($clipboard =~ /^([a-f0-9]{128})$/)) ? "normal" : "disabled"), -underline => 1, -command => [ sub {
   $token = $clipboard;
@@ -938,12 +932,12 @@ $update = $frame2->new_ttk__button(-text => $L->{$lang}{TXT_UPDATE}, -command =>
     @disp_servers = ($L->{$lang}{TXT_DEFAULT_SERVER},"Cryptofree");
     my @data=split(/\n/, $tmpnodebuf);
     open(NODELIST,">$nodelistfile") || &do_error($L->{$lang}{ERR_CANT_WRITE_TO} . " $nodelistfile");
-    foreach my $line (uniq(@data)) {
-	 if ($line =~ /windows/) {
-      print NODELIST "$line\n";
-      $line =~ /^(.*):(.*):(.*):(.*)$/;
+    foreach my $sline (uniq(@data)) {
+	 if ($sline =~ /windows/) {
+      print NODELIST "$sline\n";
+      $sline =~ /^(.*):(.*):(.*):(.*)$/;
       push(@disp_servers,"$1");
-      push(@servers,"$line");
+      push(@servers,"$sline");
      }
     }
     close(NODELIST);
@@ -1101,13 +1095,17 @@ if (defined($update_var) && ($update_var eq "on") && ($widget_update_var eq $L->
  $statusvar = $L->{$lang}{TXT_NOT_CONNECTED};
  Tkx::update();
 }
-if ($ipv6_var eq "on") {
- my $tmpstatusvar = $statusvar;
- $statusvar = $L->{$lang}{TXT_DISABLING_IPV6} . "...";
- Tkx::update();
- &ipv6_off;
- $statusvar = $tmpstatusvar;
- Tkx::update();
+if ($nostun_var eq "on") {
+ &nostun_on;
+}
+if ($nostun_var eq "off") {
+ &nostun_off;
+}
+if ($noipv6_var eq "on") {
+ &noipv6_on;
+}
+if ($noipv6_var eq "off") {
+ &noipv6_off;
 }
 if ($autosplash_var eq "on") {
  $mw->g_wm_deiconify();
@@ -1144,7 +1142,19 @@ if (defined($amsg)) {
 }
 $statusvar = $L->{$lang}{TXT_CHECKING_TAP} . "...";
 Tkx::update();
-&check_tapi();
+my $tap_ret = &check_tapi();
+if ($tap_ret == -1) {
+ alarm 0;
+ $cancel->configure(-text => $L->{$lang}{TXT_EXIT});
+ $connect->configure(-state => "normal");
+ $options->configure(-state => "normal");
+ $update->configure(-state => "normal");
+ $pbarval = 0;
+ &do_error($L->{$lang}{ERR_TAP});
+ $statusvar = $L->{$lang}{TXT_NOT_CONNECTED};
+ Tkx::update();
+ return;
+}
 $statusvar = $L->{$lang}{TXT_NOT_CONNECTED};
 Tkx::update();
 Tkx::MainLoop();
@@ -1254,7 +1264,7 @@ sub savelogin {
  if ($autorun_var =~ /(on|off)/) {
   print CREDS "autorun=$1\n";
  }
- if ($dnscrypt_var =~ /(on|off)/) {
+ if ($dnscrypt_var =~ /(on|off|local)/) {
   print CREDS "dnscrypt=$1\n";
  }
  if ($killswitch_var =~ /(.*)/) {
@@ -1281,7 +1291,7 @@ sub savelogin {
  if ($timeout_var =~ /([0-9]+)/) {
   print CREDS "timeout=$1\n";
  }
- if ($ipv6_var =~ /(on|off)/) {
+ if ($noipv6_var =~ /(on|off)/) {
   print CREDS "noipv6=$1\n";
  }
  if ($port_var =~ /([0-9]+)/) {
@@ -1309,9 +1319,6 @@ sub savelogin {
  }
  if ($widget_update_var) {
   print CREDS "widget_update_var=$widget_update_var\n";
- }
- if ($selected_adv_opt1 eq "1.3") {
-  print CREDS "tls=1.3\n";
  }
  if ($selected_adv_opt2 ne "adaptive") {
   print CREDS "ip-win32=$selected_adv_opt2\n";
@@ -1414,6 +1421,8 @@ sub recon {
 }
 
 sub connectt {
+ $stop = 0;
+ $idle = 0;
  $logbox->delete("1.0","end") if defined $logbox;
  $SIG{ALRM} = sub { &recon($L->{$lang}{TXT_CONNECT_TIMEOUT});return; };
  alarm $timeout_var;
@@ -1458,10 +1467,7 @@ sub connectt {
  if (($autocon_var eq "on") && ($saveoption eq "off") || (!$saveoption)) {
   $autocon_var = "off";
  }
- $statusvar = $L->{$lang}{TXT_CHECKING_BIT} . "...";
- &step_pbar();
  Tkx::update();
- #&blue_derp;
  $statusvar = $L->{$lang}{TXT_CHECKING_TAP} . "...";
  &step_pbar();
  my $tap_ret = &check_tapi();
@@ -1511,20 +1517,8 @@ sub connectt {
  else {
   $whichvpn = "paid";
  }
- if ($nostun_var eq "on") {
-  $statusvar = $L->{$lang}{TXT_ENABLING_STUN_LEAK} . "...";
-  Tkx::update();
-  system 1, "nostun.bat";
-  $statusvar = $L->{$lang}{TXT_LOGGING_IN} . "...";
-  Tkx::update();
- }
- if ($ipv6_var eq "on") {
-  $statusvar = $L->{$lang}{TXT_DISABLING_IPV6} . "...";
-  Tkx::update();
-  &ipv6_off;
-  $statusvar = $L->{$lang}{TXT_LOGGING_IN} . "...";
-  Tkx::update();
- }
+ $statusvar = $L->{$lang}{TXT_LOGGING_IN} . "...";
+ Tkx::update();
  if ($randomize_it eq "on") {
   $port_var = int(rand(29998) + 1);
   if (($port_var == 5061) || ($port_var == 5062)) {
@@ -1564,7 +1558,7 @@ sub connectt {
   &recon($L->{$lang}{TXT_DNS_UPDATED} . "\n");
   return;
  }
- if (($dnsret =~ /[0-9]+/) || ($#resolved_ips == -1)) {
+ if ($#resolved_ips == -1) {
   $statusvar = $L->{$lang}{TXT_NOT_CONNECTED};
   $pbarval = 0;
   $cancel->configure(-text => $L->{$lang}{TXT_EXIT});
@@ -1611,6 +1605,7 @@ sub connectt {
  $statusvar = $L->{$lang}{TXT_CONNECTING} . "...";
  Tkx::update();
  @remote_random = qw();
+ $stop = 0;
  $pid = open $VPNfh, "-|", "..\\bin\\$vpnexe $vpn_args && timeout 5 > NUL";
  step_pbar();
  Tkx::update();
@@ -1638,7 +1633,7 @@ sub start_obfsproxy {
 
 sub logbox_loop {
  while (!$idle) {
-  select(undef,undef,undef,0.01);  
+  select(undef,undef,undef,0.05);  
   &watch_logbox;
  }
 }
@@ -1647,17 +1642,17 @@ sub watch_logbox {
  Tkx::update() unless $idle;
  select(undef,undef,undef,0.01);
  if (defined($buffer) && (length $buffer)) {
-  $line   = $buffer;
+  $ovpnline   = $buffer;
   $buffer = '';
-  $logbox->insert('end', $line);
+  $logbox->insert('end', $ovpnline);
   $logbox->see('end');
   Tkx::update() unless $idle;
   for (@msgs) {
-   if ($line =~ /$_/) {
+   if ($ovpnline =~ /$_/) {
     &step_pbar();
    }
   }
-  if ($line =~ /Options error:/) {
+  if ($ovpnline =~ /Options error:/) {
    $logbox->insert_end("\n", "badline");
    $logbox->see('end');
    $statusvar = $L->{$lang}{TXT_NOT_CONNECTED};
@@ -1667,14 +1662,14 @@ sub watch_logbox {
    $options->configure(-state => "normal");
    $update->configure(-state => "normal");
    $server_textbox->configure(-state => "readonly");
-   &do_error($line);
+   &do_error($ovpnline);
    Win32::Process::KillProcess($pid, 0) if defined $pid;
    alarm 0;
    close($VPNfh);
    $stop = 1;
    return -1;
   }
-  if ($line =~ /Exiting due to fatal error/) {
+  if ($ovpnline =~ /Exiting due to fatal error/) {
    $logbox->insert_end("\n", "badline");
    $logbox->see('end');
    $statusvar = $L->{$lang}{TXT_NOT_CONNECTED};
@@ -1684,16 +1679,16 @@ sub watch_logbox {
    $options->configure(-state => "normal");
    $update->configure(-state => "normal");
    $server_textbox->configure(-state => "readonly");
-   my @lines = split /\n/, $line;
-   $line = @lines[($#lines - 1 )];
-   &do_error($line);
+   my @lines = split /\n/, $ovpnline;
+   $ovpnline = @lines[($#lines - 1 )];
+   &do_error($ovpnline);
    Win32::Process::KillProcess($pid, 0) if defined $pid;
    alarm 0;
    close($VPNfh);
    $stop = 1;
    return -1;
   }
-  if ($line =~ /AUTH: Received control message: AUTH_FAILED/) {
+  if ($ovpnline =~ /AUTH: Received control message: AUTH_FAILED/) {
    $logbox->insert_end($L->{$lang}{ERR_AUTH_FAIL} . "\n", "badline");
    $logbox->see('end');
    $statusvar = $L->{$lang}{TXT_NOT_CONNECTED};
@@ -1710,7 +1705,7 @@ sub watch_logbox {
    $stop = 1;
    return -1;
   }
-  if ($line =~ /Cannot resolve host address: (.*)/) {
+  if ($ovpnline =~ /Cannot resolve host address: (.*)/) {
    $logbox->insert_end($L->{$lang}{ERR_CANNOT_RESOLVE} . " $1\n", "badline");
    $logbox->see('end');
    $statusvar = $L->{$lang}{TXT_NOT_CONNECTED};
@@ -1733,8 +1728,8 @@ sub watch_logbox {
    $stop = 1;
    return -1;
   }
-  if ($line =~ /Initialization Sequence Completed/) {
-   if ($line =~ /Initialization Sequence Completed With Errors/) {
+  if ($ovpnline =~ /Initialization Sequence Completed/) {
+   if ($ovpnline =~ /Initialization Sequence Completed With Errors/) {
     $logbox->insert_end($L->{$lang}{ERR_CONNECT_GENERIC} . "\n", "badline");
     $logbox->see('end');
     $cancel->configure(-text => $L->{$lang}{TXT_EXIT});
@@ -1824,19 +1819,19 @@ sub watch_logbox {
 }
 
 sub read_out {
- my ($VPNfh) = @_;
- while (defined( my $line = readline $VPNfh) ) {
-  $line =~ s/^[0-9\.]+ [0-9a-f]+ //;
-  if (($line !~ /[UDP|TUN] [READ|WRITE]/) && 
-      ($line !~ /sending exit notification to peer/) &&
-      ($line !~ /\-\-mute/) &&
-      ($line !~ /mode = /) &&
-	  ($line !~ /config =/) &&
-      ($line !~ /Current Parameter Settings/) &&
-	  ($line !~ /MTU parms/) &&
-	  ($line !~ /MANAGEMENT/) &&
-	  ($line !~ /msg_channel=/)) {
-   $buffer .= $line;
+ my ($lVPNfh) = @_;
+ while (defined( my $rline = readline $lVPNfh) ) {
+  $rline =~ s/^[0-9\.]+ [0-9a-f]+ //;
+  if (($rline !~ /[UDP|TUN] [READ|WRITE]/) && 
+      ($rline !~ /sending exit notification to peer/) &&
+      ($rline !~ /\-\-mute/) &&
+      ($rline !~ /mode = /) &&
+	  ($rline !~ /config =/) &&
+      ($rline !~ /Current Parameter Settings/) &&
+	  ($rline !~ /MTU parms/) &&
+	  ($rline !~ /MANAGEMENT/) &&
+	  ($rline !~ /msg_channel=/)) {
+   $buffer .= $rline;
   }
   last if $stop;
  }
@@ -1847,7 +1842,6 @@ sub read_out {
 sub do_exit {
  my $idunno = "whatever";
  Tkx::update();
- unlink("..\\user\\manpass.txt");
  if (&isoncs > 0) {
   Tkx::update();
   $idunno = Tkx::tk___messageBox(-type =>    "yesno",
@@ -1870,35 +1864,30 @@ sub do_exit {
   &kill_it;
   Tkx::update();
   $pbarval = 0;
-  if ($nostun_var eq "on") {
-   $statusvar = $L->{$lang}{TXT_DISABLING_STUN_LEAK} . "...";
-   Tkx::update();
-   my $stunpid = system 1, "netsh advfirewall firewall del rule name=\"cryptostorm - STUN leak block\"";
-   if (defined($stunpid)) {
-    Tkx::update();
-    while (kill(0,$stunpid) == 1) {
-	 Tkx::update();
-	 select(undef,undef,undef,0.01);
-	}
-   }
-   Tkx::update();
-  }
-  if ($ipv6_var eq "on") {
-   $statusvar = $L->{$lang}{TXT_ENABLING_IPV6} . "...";
-   Tkx::update();
-   &ipv6_on;
-   Tkx::update();
-  }
   if ($cancel->cget(-text) eq $L->{$lang}{TXT_EXIT}) {
    if ($dnscrypt_var eq "on") {
     $statusvar = $L->{$lang}{TXT_DNS_RESTORE} . "...";
     Tkx::update();
 	&dnscrypt(0);
+	Tkx::update();
    }
-   if (`netsh int ipv4 sh dns|findstr "127.0.0.1"`) {
+   my $dnscrypt_check = 0;
+   my $interfaces = $Registry->{'HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/'};
+   foreach (keys %$interfaces) {
+    my $GUID = $_;
+    my $intdns = $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$GUID/NameServer"};
+    if ($intdns eq "127.0.0.1") {
+     $dnscrypt_check = 1;
+    }
+   }
+   if ($dnscrypt_check) {
     $statusvar = $L->{$lang}{TXT_DNS_RESTORE} . "...";
     Tkx::update();
 	&dnscrypt(0);
+	Tkx::update();
+   }
+   if (-e "..\\user\\manpass.txt") {
+    unlink("..\\user\\manpass.txt");
    }
    if (-e "..\\user\\mydns.txt") {
     $statusvar = $L->{$lang}{TXT_DNS_RESTORE} . "...";
@@ -1922,6 +1911,11 @@ sub do_exit {
      }
     }
    }
+   Tkx::update();
+   &nostun_off;
+   Tkx::update();
+   &noipv6_off;
+   Tkx::update();
    my $pi = Win32::Process::Info->new;
    my @info = $pi->GetProcInfo();
    foreach(@info) {
@@ -1978,7 +1972,6 @@ sub do_exit {
   }
   Tkx::update();
   if ($cancel->cget(-text) eq $L->{$lang}{TXT_DISCONNECT}) {
-   $idle = 1;
    if (-e "..\\user\\socks.dat") {
     unlink("..\\user\\socks.dat");
    }
@@ -2006,6 +1999,7 @@ sub do_exit {
    $logbox->insert_end($L->{$lang}{TXT_DISCONNECTED} . "\n", "badline");
    $logbox->see('end');
    Win32::Process::KillProcess($pid, 0) if defined $pid;
+   $thread->kill('KILL') if defined($thread);
    $TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
    undef $TrayWinHidden if defined $TrayWinHidden;
    $cancel->configure(-state => "normal");
@@ -2053,8 +2047,8 @@ sub do_exit {
     my @info = $pi->GetProcInfo();
     foreach(@info) {
      if($_->{Name} =~ /csvpn/) {
-	  &kill_it;
       Win32::Process::KillProcess ($_->{ProcessId}, 0);
+	  &kill_it;
      }	
 	}
 	sleep 2;
@@ -2086,15 +2080,15 @@ sub do_exit {
    }
    $statusvar = $L->{$lang}{TXT_DISCONNECTED};
    $pbarval = 0;
+   $idle = 1;
    Tkx::update();
   }
  }
 }
 
 sub check_tapi {
- my @cmd;
- @cmd = `..\\bin\\$vpnexe --show-adapters 2>&1`;
- if (!defined($cmd[1])) {
+ my @tapicmd = `..\\bin\\$vpnexe --show-adapters 2>&1`;
+ if (!defined($tapicmd[1])) {
   my $tap_install = system("..\\bin\\tap-windows-9.21.2.exe /S");
   if (defined($tap_install)) {
    $statusvar = $L->{$lang}{TXT_TAP_INSTALLING} . "...";
@@ -2109,12 +2103,12 @@ sub check_tapi {
     $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/ControlSet001/Control/Network/{4D36E972-E325-11CE-BFC1-08002BE10318}/$2/Connection/Name"}="cryptostorm";
    }
   }
-  undef @cmd;
+  undef @tapicmd;
   &check_tapi;
  }
  my $tap_found = 0;
- @cmd = `..\\bin\\$vpnexe --show-adapters 2>&1`;
- for (@cmd) {
+ @tapicmd = `..\\bin\\$vpnexe --show-adapters 2>&1`;
+ for (@tapicmd) {
   if (/'cryptostorm'/) {
    $tap_found = 1;
   }
@@ -2122,7 +2116,7 @@ sub check_tapi {
  if ($tap_found == 1) {
   $statusvar = $L->{$lang}{TXT_TAP_FOUND};
   Tkx::update();
-  undef @cmd;
+  undef @tapicmd;
   return 1;
  }
  else {
@@ -2130,7 +2124,7 @@ sub check_tapi {
   Tkx::update();
   system ("..\\bin\\$tapexe remove tap0901 2>&1");
   Tkx::update();
-  undef @cmd;
+  undef @tapicmd;
   &check_tapi;
  }
 }
@@ -2165,6 +2159,9 @@ sub do_options {
  if ($saveoption eq "off") {
   $autocon_var = "off";
  }
+ $tmp_noipv6_var = $noipv6_var;
+ $tmp_nostun_var = $nostun_var;
+ $tmp_dnscrypt_var = $dnscrypt_var;
  $mw->g_wm_deiconify();
  $mw->g_wm_withdraw();
  my $width  ||= Tkx::winfo('reqwidth',  $cw);
@@ -2233,14 +2230,19 @@ sub backtomain {
  $cw->g_wm_withdraw();
  $mw->g_raise();
  $mw->g_wm_deiconify();
- if ($dnscrypt_var eq "on") {
-  &dnscrypt(1);
- }
  $mw->g_focus();
  Tkx::update();
- if ($dnscrypt_var eq "off") {
-  &dnscrypt(0);
-  Tkx::update();
+ if ($dnscrypt_var ne $tmp_dnscrypt_var) {
+  if ($dnscrypt_var eq "on") {
+   Tkx::update();
+   &dnscrypt(1);
+   Tkx::update();
+  }
+  if ($dnscrypt_var eq "off") {
+   Tkx::update();
+   &dnscrypt(0);
+   Tkx::update();
+  }
  }
  if ($autorun_var eq "on") {
   $Registry->{'HKEY_LOCAL_MACHINE/Software/Microsoft/Windows/CurrentVersion/Run/Cryptostorm client'}="$self";
@@ -2252,12 +2254,22 @@ sub backtomain {
   $saveoption = "on";
  }
  Tkx::update();
- if ($nostun_var eq "off") {
-   system 1, "netsh advfirewall firewall del rule name=\"cryptostorm - STUN leak block\"";
+ if ($nostun_var ne $tmp_nostun_var) {
+  if ($nostun_var eq "off") {
+   &nostun_off;
+  }
+  if ($nostun_var eq "on") {
+   &nostun_on;
+  }
  }
  Tkx::update();
- if ($ipv6_var eq "off") {
-  &ipv6_on;
+ if ($noipv6_var ne $tmp_noipv6_var) {
+  if ($noipv6_var eq "on") {
+   &noipv6_on;
+  }
+  if ($noipv6_var eq "off") {
+   &noipv6_off;
+  }
  }
  Tkx::update();
  if (($killswitch_var eq "on") && ($adv_socks_opt eq "on")) {
@@ -2267,6 +2279,7 @@ sub backtomain {
  &savelogin;
  Tkx::update();
  if ($killswitch_var eq "off") {
+  Tkx::update();
   &killswitch_off;
   Tkx::update();
  }
@@ -2429,7 +2442,9 @@ sub grabnverify {
 sub dnscrypt {
  if ($_[0] == 0) {
   if (`..\\bin\\$dnscexe -service stop 2>&1` =~ /(Service stopped|been started)/) {
+   Tkx::update();
    if (`..\\bin\\$dnscexe -service uninstall 2>&1` =~ /(Service uninstalled|not installed)/) {
+    Tkx::update();
     &restore_dns;
     return 1;
    }
@@ -2440,6 +2455,7 @@ sub dnscrypt {
   my $nodns = "0";
   my $dnsinc;
   for (@isinuse) {
+   Tkx::update();
    if (/127\.0\.0\.1:53\s.*LISTENING(.*)/) {
     my $pidness = $1;
     $pidness =~ s/\r|\n|\s//g;
@@ -2521,15 +2537,16 @@ sub restore_dns {
  my $tmpstatusvarblah = $statusvar;
  Tkx::update();
  for (@recover) {
-  if (/^(.*):DHCP:(.*)$/) {
-   $dnsfix1 = system 1,qq(netsh interface ip set dns "$1" dhcp);
+  Tkx::update();
+  if (/^(.*):DHCP:/) {
+   $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$1/NameServer"} = "";
   }
   if (/^(.*):Static:(.*)$/) {
-   if ($2 !~ /127\.0\.0\.1/) {
-	$dnsfix2 = system 1,qq(netsh interface ip set dns "$1" static $2);
+   if (($2 !~ /127\.0\.0\.1/) && ($dnscrypt_var ne "local")) {
+	$Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$1/NameServer"} = "$2";
    }
    else {
-    $dnsfix2 = system 1,qq(netsh interface ip set dns "$1" dhcp);
+    $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$1/NameServer"} = "";
    }
   }
  }
@@ -2542,54 +2559,43 @@ sub restore_dns {
 }
 
 sub set_dns_to_dnscrypt {
- my $current_interface;
- foreach my $line (@output) {
-  if ($line =~ /Configuration for interface "(.*)"/) {
-   $current_interface = $1;
+ my $makesurednscryptisrunning = 0;
+ my @info = $pi->GetProcInfo();
+ foreach(@info) {
+  Tkx::update();
+  if ($_->{Name} =~ /cs\-dnsc\-p/) {
+   $makesurednscryptisrunning = 1;
   }
-  if (($line =~ /DNS servers configured through (DHCP):\s+(.*)/) ||
-      ($line =~ /(Static)ally Configured DNS Servers:\s+(.*)/)) {	
-   my $dnstype = $1;
-   my $tmpy = $2;
-   if (($tmpy !~ /127\.0\.0\.1/) && ($tmpy !~ /None/)) {
-    my @info = $pi->GetProcInfo();
-    foreach(@info) {
-     if ($_->{Name} =~ /cs\-dnsc\-p/) {
-	  system 1, qq(netsh interface ip set dns "$current_interface" static 127.0.0.1);
-     }
-	}
-   }
+ }
+ if ($makesurednscryptisrunning) {
+  my $interfaces = $Registry->{'HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/'};
+  foreach (keys %$interfaces) {
+   my $GUID = $_;
+   my $intdns = $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$GUID/NameServer"};
+   $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$GUID/NameServer"} = "127.0.0.1";
   }
  }
 }
 
 sub get_current_dns {
- open(my $fh, '-|', 'netsh interface ipv4 show dnsserv') or &do_error("&get_current_dns: $!");
- my $current_interface;
- @output = <$fh>;
- close($fh);
- foreach my $line (@output) {
-  if ($line =~ /Configuration for interface "(.*)"/) {
-   $current_interface = $1;
-  }
-  if (($line =~ /DNS servers configured through (DHCP):\s+(.*)/) ||
-      ($line =~ /(Static)ally Configured DNS Servers:\s+(.*)/)) {
-   my $dnstype = $1;
-   my $tmpy = $2;
-   if ($tmpy !~ /None/) {
-    if ($tmpy =~ /127\.0\.0\.1/) {
-	 if ($dnscrypt_var eq "off") {
-	  system qq(netsh interface ip set dns "$current_interface" dhcp);
-	  push(@recover,"$current_interface:DHCP:fixme\r\n");
-	 }
-	 else {
-	  push(@recover,"$current_interface:DHCP:fixme\r\n");
-	 }
+ my $interfaces = $Registry->{'HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/'};
+ foreach (keys %$interfaces) {
+  Tkx::update();
+  my $GUID = $_;
+  my $intdns = $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$GUID/NameServer"};
+  if ($intdns) {
+   if (($intdns =~ /127\.0\.0\.1/) && ($dnscrypt_var ne "local")) {
+    if ($dnscrypt_var eq "off") {
+     $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$GUID/NameServer"} = "";
 	}
-	else {
-     push(@recover,"$current_interface:$dnstype:$tmpy\r\n");
-	}
+	push(@recover,"$GUID:DHCP:\n");
    }
+   if ($intdns !~ /127\.0\.0\.1/) {
+    push(@recover,"$GUID:Static:$intdns\n");
+   }
+  }
+  else {
+   push(@recover,"$GUID:DHCP:\n");
   }
  }
  if ($#recover > -1) {
@@ -2601,12 +2607,104 @@ sub get_current_dns {
  }
 }
 
-sub ipv6_off {
- system 1, '..\user\ipv6_off.bat';
+sub wait4thekill {
+ my $runthis = system 1,qq($_[0]);
+ while (kill(0,$runthis) == 1) {
+  Tkx::update();
+  select(undef,undef,undef,0.01);
+ }
 }
 
-sub ipv6_on {
- system 1, '..\user\ipv6_on.bat';
+sub noipv6_on {
+ my $tmpstatusvar = $statusvar;
+ $statusvar = $L->{$lang}{TXT_DISABLING_IPV6} . "...";
+ Tkx::update();
+ $statusvar = "Starting Windows Firewall service";
+ Tkx::update();
+ &wait4thekill(qq(net start MpsSvc));
+ Tkx::update();
+ $statusvar = "Blocking outgoing ICMPv6";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - stop IPv6 leaks" protocol=icmpv6 dir=out action=block));
+ Tkx::update();
+ $statusvar = "Blocking incoming ICMPv6";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - stop IPv6 leaks" protocol=icmpv6 dir=in action=block));
+ Tkx::update();
+ $statusvar = "Blocking protocol 41";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - stop IPv6 leaks" action=block protocol=41 dir=out));
+ Tkx::update();
+ $statusvar = "Blocking protocol 43";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - stop IPv6 leaks" protocol=43 action=block dir=out));
+ Tkx::update();
+ $statusvar = "Blocking protocol 44";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - stop IPv6 leaks" protocol=44 action=block dir=out));
+ Tkx::update();
+ $statusvar = "Blocking protocol 58";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - stop IPv6 leaks" protocol=58 action=block dir=out));
+ Tkx::update();
+ $statusvar = "Blocking protocol 59";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - stop IPv6 leaks" protocol=59 action=block dir=out));
+ Tkx::update();
+ $statusvar = "Blocking protocol 60";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - stop IPv6 leaks" protocol=60 action=block dir=out));
+ Tkx::update();
+ $statusvar = $tmpstatusvar;
+ Tkx::update();
+}
+
+sub noipv6_off {
+ my $tmpstatusvar = $statusvar;
+ $statusvar = $L->{$lang}{TXT_ENABLING_IPV6} . "...";
+ Tkx::update();
+ $statusvar = "Deleting IPv6 blocking firewall rule";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall del rule name="cryptostorm - stop IPv6 leaks"));
+ Tkx::update();
+ $statusvar = $tmpstatusvar;
+ Tkx::update();
+}
+
+sub nostun_off {
+ my $tmpstatusvar = $statusvar;
+ $statusvar = $L->{$lang}{TXT_DISABLING_STUN_LEAK} . "...";
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall del rule name="cryptostorm - STUN leak block"));
+ Tkx::update();
+ $statusvar = $tmpstatusvar;
+ Tkx::update();
+}
+
+sub nostun_on {
+ my $tmpstatusvar = $statusvar;
+ $statusvar = $L->{$lang}{TXT_ENABLING_STUN_LEAK} . "...";
+ Tkx::update();
+ system("net start MpsSvc");
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - STUN leak block" dir=out action=block protocol=UDP localport=3478));
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - STUN leak block" dir=out action=block protocol=UDP remoteport=3478));
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - STUN leak block" dir=in action=block protocol=UDP localport=3478));
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - STUN leak block" dir=in action=block protocol=UDP remoteport=3478));
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - STUN leak block" dir=out action=block protocol=UDP localport=19302));
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - STUN leak block" dir=out action=block protocol=UDP remoteport=19302));
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - STUN leak block" dir=in action=block protocol=UDP localport=19302));
+ Tkx::update();
+ &wait4thekill(qq(netsh advfirewall firewall add rule name="cryptostorm - STUN leak block" dir=in action=block protocol=UDP remoteport=19302));
+ Tkx::update();
+ $statusvar = $tmpstatusvar;
+ Tkx::update();
 }
 
 sub blue_derp {
@@ -2718,28 +2816,37 @@ sub get_next_free_local_port {
 }
 
 sub kill_it {
- $| = 1;
- if (!$manport) { return -1; }
- system ("..\\bin\\wkillcx.exe 127.0.0.1:$manport");
- my ($socket,$client_socket,$data);
- $socket = new IO::Socket::INET (
- PeerHost => '127.0.0.1',
- PeerPort => $manport,
- Proto => 'tcp',
- ) or return -1;
- print $socket "$manpass\r\n";
- while (<$socket>) {
-  if (/INFO:OpenVPN Management Interface Version/) {
-   print $socket "signal SIGTERM\r\n";
-  }
-  if (/SUCCESS: signal SIGTERM thrown/) {
-   print $socket "exit\r\n";
-   Win32::Process::KillProcess($pid, 0) if defined $pid;
-   close($socket);
-   return;
+ if (!defined($manport)) { return -1; }
+ if (!defined($manpass)) { return -1; }
+ if ($cancel->cget(-text) eq $L->{$lang}{TXT_DISCONNECT}) {
+  &killcx($manport);
+  my ($socket,$client_socket,$data);
+  $socket = new IO::Socket::INET (
+  PeerHost => '127.0.0.1',
+  PeerPort => $manport,
+  Proto => 'tcp',
+  Timeout => 1
+  ) or return -1;
+  if ($socket) {
+   print $socket "$manpass\r\n";
+   while (<$socket>) {
+    if (/INFO:OpenVPN Management Interface Version/) {
+     print $socket "signal SIGTERM\r\nexit\r\n";
+     $stop = 1;
+     close($socket);
+     Win32::Process::KillProcess($pid, 0) if defined $pid;
+     &killcx($manport);
+     return;
+    }
+   }
   }
  }
- return;
+ else {
+  $stop = 1;
+  Win32::Process::KillProcess($pid, 0) if defined $pid;
+  &killcx($manport);
+  return 1;
+ }
 }
 
 sub progress_bar {
@@ -2968,30 +3075,42 @@ sub killswitch_off {
  Tkx::update();
 }
 
+sub killcx {
+ my $port = $_[0];
+ for ($kcxt=0;$kcxt<=5;$kcxt++) {
+  system ("..\\bin\\wkillcx.exe 127.0.0.1:$port");
+ }
+}
+
 sub isoncs {
- if (!$manport) { return -1; }
- $| = 1;
- system ("..\\bin\\wkillcx.exe 127.0.0.1:$manport");
- my ($socket,$client_socket,$data);
- $socket = new IO::Socket::INET (
+ if (!defined($manport)) { return 0; }
+ if (!defined($manpass)) { return 0; }
+ if ($cancel->cget(-text) eq $L->{$lang}{TXT_EXIT}) { return 0; }
+ &killcx($manport);
+ my $ison_socket = new IO::Socket::INET (
  PeerHost => '127.0.0.1',
  PeerPort => $manport,
- Proto => 'tcp') or return -1;
- print $socket "$manpass\r\n" or return;
- while (<$socket>) {
+ Proto => 'tcp',
+ Timeout => 1) or return 0;
+ print $ison_socket "$manpass\r\n";
+ while (<$ison_socket>) { 
   if (/INFO:OpenVPN Management Interface Version/) {
-   print $socket "state\n";
+   print $ison_socket "state\r\n";
    my $response = "";
-   $socket->recv($response, 64);
+   $ison_socket->recv($response, 64) || &killcx($manport);
    if ($response =~ /CONNECTED,SUCCESS/) {
-    close($socket);
+    close($ison_socket);
+    &killcx($manport);
     return 1;
    }
    else {
-    return -1;
+    &killcx($manport);
+    return 0;
    }
   }
  }
+ return 0;
+ &killcx($manport);
 }
 
 sub genpass {
@@ -3123,24 +3242,14 @@ sub dns_error {
    unlink("..\\user\\mydns.txt");
   }
   if ($dnscrypt_var eq "on") {
-   open(my $fh, '-|', 'netsh interface ipv4 show dnsserv') or &do_error("&get_current_dns: $!");
-   my $current_interface;
-   @output = <$fh>;
-   close($fh);
-   foreach my $line (@output) {
-    Tkx::update();
-    if ($line =~ /Configuration for interface "(.*)"/) {
-     $current_interface = $1;
-    }
-    if (($line =~ /DNS servers configured through (DHCP):\s+(.*)/) ||
-        ($line =~ /(Static)ally Configured DNS Servers:\s+(.*)/)) {	
-     my $dnstype = $1;
-     my $tmpy = $2;
-     if (($dnstype ne "DHCP") && ($current_interface !~ /Loopback/)) {
-      system 1, qq(netsh interface ip set dns "$current_interface" static 1.1.1.1);
-	  $cfdns = 1;
-	 }
-    }
+   my $interfaces = $Registry->{'HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/'};
+   foreach (keys %$interfaces) {
+    my $GUID = $_;
+	my $intdns = $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$GUID/NameServer"};
+	if ($intdns) {
+     $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$GUID/NameServer"} = "1.1.1.1";
+	 $cfdns = 1;
+	}
    }
   }
   else {
@@ -3159,41 +3268,51 @@ sub dns_error {
 sub preresolve {
  my $chosen_node = $_[0];
  $chosen_node =~ s/cstorm\.is.*/cstorm.is/;
- my $resolver;
  my $query;
+ my $resolver;
+ my @ns;
  if ($dnscrypt_var eq "on") {
   if ($cfdns) {
-   $resolver = Net::DNS::Resolver->new(nameservers => ["1.1.1.1"]);
+   $resolver = $cloudflare_resolver;
    $cfdns=0;
+   @ns = @cloudflare_ns;
   }
   else {
-   $resolver = Net::DNS::Resolver->new(nameservers => ["127.0.0.1"]);
+   $resolver = $dnscrypt_resolver;
+   @ns = @dnscrypt_ns;
   }
  }
  else {
-  $resolver = Net::DNS::Resolver->new();
+  $resolver = $default_resolver;
+  @ns = @default_ns;
  }
- $resolver->tcp_timeout(7);
- $resolver->udp_timeout(7);
- my @yerdns = $resolver->nameservers();
- my $handle = $resolver->bgsend("$chosen_node");
- until ($resolver->bgisready($handle)) {
-  Tkx::update();
- }
- my $packet = $resolver->bgread($handle);
- if (defined($packet)) {
-  foreach my $rr ($packet->answer) {
-   next unless $rr->type eq "A";
-   push(@resolved_ips,$rr->rdatastr);
-  }
+ if ($resolver == $default_resolver) {
+  @resolved_ips = gethostbyname($chosen_node) or &do_error("Can't resolve $chosen_node: $!\n");
+  @resolved_ips = map { inet_ntoa($_) } @resolved_ips[4 .. $#resolved_ips];
  }
  else {
-  if ($resolver->errorstring =~ /corrupt wire-format data/) {
-   &preresolve($chosen_node);
-   return;
+  $resolver->tcp_timeout(7);
+  $resolver->udp_timeout(7);
+  my $handle = $resolver->bgsend("$chosen_node");
+  until ($resolver->bgisready($handle)) {
+   Tkx::update();
+   select(undef,undef,undef,0.02);
+  }
+  my $packet = $resolver->bgread($handle);
+  if (defined($packet)) {
+   foreach my $rr ($packet->answer) {
+    next unless $rr->type eq "A";
+    push(@resolved_ips,$rr->rdatastr);
+   }
   }
   else {
-   return &dns_error("$chosen_node:" . $yerdns[0] . ":" . $resolver->errorstring); # one of those are uninitialized if internet is down, prolly $yerdns[0]
+   if ($resolver->errorstring =~ /corrupt wire-format data/) {
+    @ns = ();
+    &preresolve($chosen_node);
+   }
+   else {
+    &dns_error("$chosen_node:" . $ns[0] . ":" . $resolver->errorstring); # one of those are uninitialized if internet is down, prolly $yerdns[0]
+   }
   }
  }
 }
@@ -3218,39 +3337,39 @@ sub confgen {
   @remote_random = ("cryptofree.cstorm.is", "cryptofree.cstorm.net", "cryptofree.cryptostorm.ch","cryptofree.cryptostorm.pw");
   if ($proto_var eq "UDP") {
    if (($ecc_var eq "on") && ($ecc_sel eq "secp521r1")) {
-	$vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
+	$vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
    }
    if ($port_var eq "5061") {
-	$vpn_args = "5061 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
+	$vpn_args = "5061 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
    }
    if ($port_var eq "5062") {
-	$vpn_args = "5062 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
+	$vpn_args = "5062 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
    }
    if (!$vpn_args) {
     if ($bit eq "32") {
-	 $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+	 $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	}
 	else {
-     $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384 --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+     $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384 --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	}
    }
   }
   if ($proto_var eq "TCP") {
    if (($ecc_var eq "on") && ($ecc_sel eq "secp521r1")) {
-	$vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
+	$vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
    }
    if ($port_var eq "5061") {
-	$vpn_args = "5061 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
+	$vpn_args = "5061 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
    }
    if ($port_var eq "5062") {
-	$vpn_args = "5062 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
+	$vpn_args = "5062 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
    }
    if (!$vpn_args) {
     if ($bit eq "32") {
-	 $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+	 $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	}
 	else {
-     $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+     $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	}
    }
   }
@@ -3260,20 +3379,20 @@ sub confgen {
    if (($disp_server eq $L->{$lang}{TXT_DEFAULT_SERVER}) || ($server eq $L->{$lang}{TXT_DEFAULT_SERVER})) {
     @remote_random = ("balancer.cstorm.is", "balancer.cstorm.net", "balancer.cryptostorm.ch","balancer.cryptostorm.pw");
     if (($ecc_var eq "on") && ($ecc_sel eq "secp521r1")) {
-	 $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
     }
 	if ($port_var eq "5061") {
-	 $vpn_args = "5061 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "5061 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
     }
 	if ($port_var eq "5062") {
-	 $vpn_args = "5062 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "5062 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
     }
     if (!$vpn_args) {
 	 if ($bit eq "32") {
-	  $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+	  $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	 }
 	 else {
-	  $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384 --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+	  $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384 --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	 }
     }
    }
@@ -3284,20 +3403,20 @@ sub confgen {
     $tmpline =~ s/\.cstorm\.is//;
 	@remote_random = ("$tmpline.cstorm.is", "$tmpline.cstorm.net", "$tmpline.cryptostorm.ch","$tmpline.cryptostorm.pw");
     if (($ecc_var eq "on") && ($ecc_sel eq "secp521r1")) {
-     $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
+     $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
 	}
 	if ($port_var eq "5061") {
-	 $vpn_args = "5061 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "5061 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
 	}
 	if ($port_var eq "5062") {
-	 $vpn_args = "5062 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "5062 --client --dev tun --proto udp --resolv-retry 16 --explicit-exit-notify 3 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
 	}
 	if (!$vpn_args) {
 	 if ($bit eq "32") {
-      $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+      $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	 }
 	 else {
-      $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384 --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+      $vpn_args = "$port_var --client --dev tun --proto udp --resolv-retry infinite --explicit-exit-notify 3 --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384 --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	 }
 	}
    }
@@ -3306,20 +3425,20 @@ sub confgen {
    if (($disp_server eq $L->{$lang}{TXT_DEFAULT_SERVER}) || ($server eq $L->{$lang}{TXT_DEFAULT_SERVER})) {
     @remote_random = ("balancer.cstorm.is", "balancer.cstorm.net", "balancer.cryptostorm.ch","balancer.cryptostorm.pw");
 	if (($ecc_var eq "on") && ($ecc_sel eq "secp521r1")) {
-	 $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
 	}
 	if ($port_var eq "5061") {
-	 $vpn_args = "5061 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "5061 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
 	}
 	if ($port_var eq "5062") {
-	 $vpn_args = "5062 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "5062 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
 	}
 	if (!$vpn_args) {
 	 if ($bit eq "32") {
-	  $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+	  $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	 }
 	 else {
-      $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+      $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	 }
 	}
    }
@@ -3330,20 +3449,20 @@ sub confgen {
     $tmpline =~ s/\.cstorm\.is//;
 	@remote_random = ("$tmpline.cstorm.is", "$tmpline.cstorm.net", "$tmpline.cryptostorm.ch","$tmpline.cryptostorm.pw");
     if (($ecc_var eq "on") && ($ecc_sel eq "secp521r1")) {
-	 $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
     }
     if ($port_var eq "5061") {
-	 $vpn_args = "5061 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "5061 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
     }
     if ($port_var eq "5062") {
-	 $vpn_args = "5062 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
+	 $vpn_args = "5062 --client --dev tun --proto tcp --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --auth SHA512 --auth-nocache --auth-user-pass ..\\user\\client.dat --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
     }
 	if (!$vpn_args) {
 	 if ($bit eq "32") {
-	  $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+	  $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-CBC --tls-version-min 1.1 --tls-cipher TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	 }
 	 else {
-	  $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-version-max $selected_adv_opt1 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
+	  $vpn_args = "$port_var --client --dev tun --proto tcp --resolv-retry infinite --nobind --down-pre --reneg-sec 0 --hand-window 17 --verb 6 --mute 3 --auth-user-pass ..\\user\\client.dat --ca ..\\user\\ca_secp521r1.crt --remote-cert-tls server --auth SHA512 --cipher AES-256-GCM --tls-version-min 1.2 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --tls-auth ..\\user\\ta.key 0 --key-method 2";
 	 }
     }
    }
@@ -3385,7 +3504,7 @@ sub confgen {
  }
  $manport = get_next_free_local_port(5000);
  $manpass = &genpass;
- open(MANPASS,">>..\\user\\manpass.txt");
+ open(MANPASS,">..\\user\\manpass.txt");
  print MANPASS "$manpass\n";
  close(MANPASS);
  $vpn_args .= " --management 127.0.0.1 $manport ..\\user\\manpass.txt ";
@@ -3397,18 +3516,10 @@ sub fix_dns {
  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f4.b_configure"} );
  &{ $stupidstrictrefs{'Tkx'} }(-state => "disabled");
  $dnscrypt_var = "off";
- foreach (`ipconfig /all|findstr "adapter"|findstr /v "isatap"`) {
-  if (/ adapter (.*):/) {
-   my $adapter = $1;
-   Tkx::update();
-   $dnsfix3 = system 1,qq(netsh interface ip set dns "$1" dhcp);
-   while (kill(0,$dnsfix3) == 1) {
-    Tkx::update();
-    select(undef,undef,undef,0.01);
-   }
-   $dnsfix3 = "";
-   Tkx::update();
-  }
+ my $interfaces = $Registry->{'HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/'};
+ foreach (keys %$interfaces) {
+  my $GUID = $_;
+  $Registry->{"HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/services/Tcpip/Parameters/Interfaces/$GUID/NameServer"} = "";
  }
  if (-e "..\\user\\mydns.txt") {
   unlink("..\\user\\mydns.txt");
