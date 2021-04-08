@@ -190,6 +190,9 @@ my $adv_socks_user_var = "";
 my $adv_socks_pass_var = "";
 my $tapi_counter = 0;
 my $timeout_var = 60;
+# no, this isn't a secret token. the cryptofree server accepts any user/pass. 
+# we chose this one years ago because it's a sha512 hash of some silly text that we've long since lost.
+# the plan was to give away a free lifetime token to anyone who cracked it, but we might have made it too complex for that to ever happen.
 my $cryptofree_token = "813db7fa66134df5295d98c5abbf90ff7206d68f3372a25138ee9c2bbb4c96d22f978ffd3da550f8dc38a15e106bec5266f91bc8447241b79e4ae0ce9fb8ff88";
 my @tapicmd = ();
 if (-e "$authfile") {
