@@ -1121,6 +1121,7 @@ $statuslbl->g_grid(-column => 0, -row => 1, -sticky => "w");
 $options->g_grid(-column => 1, -row => 1, -sticky => "e");
 $connect->g_grid(-column => 1, -row => 2, -sticky => "nswe");
 $cancel->g_grid(-column => 0, -row => 1, -sticky => "e");
+# this isn't secret or sensitive either. the password can be anything, so we're using the md5 hash of some random text.
 $password = "93b66e7059176bbfa418061c5cba87dd";
 Tkx::update('idletasks');
 $width  = Tkx::winfo('reqwidth',  $mw);
