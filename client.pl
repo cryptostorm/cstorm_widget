@@ -17,7 +17,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.46";
+our $VERSION = "3.55";
 use strict;
 use warnings;
 use threads;
@@ -171,10 +171,10 @@ my $tmp_dnscrypt_var;
 our $port_var = "443";
 my $proto_var = "UDP";
 my @protos = ('UDP', 'TCP');
-my @tlses = ('secp521r1','Ed25519','Ed448','RSA');
+my @tlses = ('secp521r1','Ed25519','Ed448');
 my $tls_sel = 'secp521r1';
 my $cipher_sel = 'AES-256-GCM';
-my $selected_adv_opt2 = "adaptive";
+my $selected_adv_opt2 = "1400";
 my $selected_adv_opt3 = "adaptive";
 my $selected_adv_opt4 = "0.0.0.0";
 my $adv_socks_opt = "off";
@@ -190,8 +190,6 @@ my $adv_socks_user_var = "";
 my $adv_socks_pass_var = "";
 my $tapi_counter = 0;
 my $timeout_var = 60;
-# no, this isn't a secret token. the cryptofree server accepts any user/pass. this is just the sha512 hash of the text "what"
-my $cryptofree_token = "813db7fa66134df5295d98c5abbf90ff7206d68f3372a25138ee9c2bbb4c96d22f978ffd3da550f8dc38a15e106bec5266f91bc8447241b79e4ae0ce9fb8ff88";
 my @tapicmd = ();
 if (-e "$authfile") {
  open(CREDS,"$authfile");
@@ -261,7 +259,7 @@ if (-e "$authfile") {
   if (/^favs=(.*)$/) {
    @favs = split(/,/,$1);
   }
-  if (/^ip-win32=(.*)$/) {
+  if (/^mssfix=(.*)$/) {
    $selected_adv_opt2 = $1;
   }
   if (/^route-method=(.*)$/) {
@@ -554,9 +552,8 @@ if ($#favs > -1) {
  })->g_pack();
 }
 my $lbl_top = $o_innerframe4->new_ttk__label(-text => "Advanced options\n");
-my @adv_opts2 = ('adaptive','ipapi','netsh');
-$selected_adv_opt2 = $adv_opts2[0];
-my $adv_label2 = $o_innerframe4->new_ttk__label(-text => "--ip-win32:  ");
+my @adv_opts2 = ('disabled','1300','1400','1500','1600');
+my $adv_label2 = $o_innerframe4->new_ttk__label(-text => "--mssfix:  ");
 my $adv_combo2 = $o_innerframe4->new_ttk__combobox(-textvariable => \$selected_adv_opt2, -values => \@adv_opts2, -width => 14, -state => "readonly");
 my @adv_opts3 = ('adaptive','ipapi','exe');
 $selected_adv_opt3 = $adv_opts3[0];
@@ -915,25 +912,19 @@ $userlbl->tag_bind("link1", "<Button-1>", sub { system 1, "start https://cryptos
 $userlbl->tag_bind("link1", "<Double-1>", sub { });
 $userlbl->tag_bind("link1", "<Enter>", sub { $userlbl->configure(-cursor => 'hand2'); });
 $userlbl->tag_bind("link1", "<Leave>", sub { $userlbl->configure(-cursor => 'arrow'); });
-$userlbl->tag_bind("link2", "<Button-1>", sub { system 1, "start https://cryptostorm.is/cryptofree"; $userlbl->tag(qw/configure link2 -foreground purple -underline 1/); });
-$userlbl->tag_bind("link2", "<Double-1>", sub { });
-$userlbl->tag_bind("link2", "<Enter>", sub { $userlbl->configure(-cursor => 'hand2'); });
-$userlbl->tag_bind("link2", "<Leave>", sub { $userlbl->configure(-cursor => 'arrow'); });
 $userlbl->tag_bind("link3", "<Button-1>", sub { system 1, "start https://cryptostorm.nu/"; $userlbl->tag(qw/configure link3 -foreground purple -underline 1/); });
 $userlbl->tag_bind("link3", "<Double-1>", sub { });
 $userlbl->tag_bind("link3", "<Enter>", sub { $userlbl->configure(-cursor => 'hand2'); });
 $userlbl->tag_bind("link3", "<Leave>", sub { $userlbl->configure(-cursor => 'arrow'); });
 $userlbl->insert("1.0", "\n" . $L->{$lang}{TXT_MAINWINDOW1} . "\n" . $L->{$lang}{TXT_MAINWINDOW2} . " ");
 $userlbl->insert('insert', $L->{$lang}{TXT_HERE}, 'link1');
-$userlbl->insert('insert', " , \n" . $L->{$lang}{TXT_MAINWINDOW3} . " ");
-$userlbl->insert('insert', "Cryptofree", 'link2');
-$userlbl->insert('insert', "\n " . $L->{$lang}{TXT_MAINWINDOW4} . "\n");
+$userlbl->insert('insert', "\n \n");
 $userlbl->insert('insert', $L->{$lang}{TXT_MAINWINDOW5} . " ");
 $userlbl->insert('insert', $L->{$lang}{TXT_HERE}, 'link3');
 $userlbl->insert('insert', ".\n");
 $userlbl->configure(-width => 55, -height => 10, -borderwidth => 0, -state=> 'disabled', -font => "TkTextFont", -cursor => 'arrow', -wrap => 'none', -background => 'gray95');
 $frame2 = $mw->new_ttk__frame(-relief => "flat");
-$token_textbox = $frame2->new_ttk__entry(-textvariable => ($disp_server eq "Cryptofree") ? \$cryptofree_token : \$token, -width => 27, -font => "token_font", -state => ($disp_server eq "Cryptofree") ? "disabled" : "normal");
+$token_textbox = $frame2->new_ttk__entry(-textvariable => \$token, -width => 27, -font => "token_font", -state => "normal");
 Tkx::bind($token_textbox,"<3>", [ sub {
  my($x,$y) = @_;
  my $current_window = Tkx::winfo('containing',$x,$y);
@@ -953,12 +944,7 @@ Tkx::bind($token_textbox,"<3>", [ sub {
 }
 ,Tkx::Ev('%X','%Y') ] );
 $server_textbox = $frame2->new_ttk__combobox(-textvariable => \$disp_server, -width => 29, -state => "readonly");
-if ($disp_server eq "Cryptofree") {
- @disp_servers = ($L->{$lang}{TXT_DEFAULT_SERVER});
-}
-else {
- @disp_servers = ($L->{$lang}{TXT_DEFAULT_SERVER},"Cryptofree");
-}
+@disp_servers = ($L->{$lang}{TXT_DEFAULT_SERVER});
 open(NODELIST, "$nodelistfile") || &do_error($L->{$lang}{ERR_CANT_OPEN} . " $nodelistfile");
 my @nodes = <NODELIST>;
 close(NODELIST);
@@ -977,9 +963,7 @@ for (@nodes) {
  }
 }
 if (!grep /$disp_server/, @nodes) {
- if ($disp_server ne "Cryptofree") {
-  $disp_server = $L->{$lang}{TXT_DEFAULT_SERVER};
- }
+ $disp_server = $L->{$lang}{TXT_DEFAULT_SERVER};
 }
 if ($disp_server ne $L->{$lang}{TXT_DEFAULT_SERVER}) {
  unshift(@disp_servers, "$disp_server");
@@ -1017,7 +1001,7 @@ $statusvar = $L->{$lang}{TXT_UPDATE_NODELIST} . "...";
     &blue_derp;
     my $tmpnodebuf = $nodebuf;
     $nodebuf = '';
-    @disp_servers = ($L->{$lang}{TXT_DEFAULT_SERVER},"Cryptofree");
+    @disp_servers = ($L->{$lang}{TXT_DEFAULT_SERVER});
     my @data=split(/\n/, $tmpnodebuf);
     open(NODELIST,">$nodelistfile") || &do_error($L->{$lang}{ERR_CANT_WRITE_TO} . " $nodelistfile");
     foreach my $sline (uniq(@data)) {
@@ -1068,18 +1052,10 @@ if ($token) {
 }
 $server_textbox->g_bind("<<ComboboxSelected>>", sub {
  $server_textbox->configure(-state => "readonly");
- if ($disp_server eq "Cryptofree") {
-  Tkx::tooltip($token_textbox, "");
-  $token_textbox->configure(-textvariable => \$cryptofree_token, -state => "disabled");
-  $saveoption = "off";
-  $save->configure(-state => "disabled");
- }
- else {
-  Tkx::tooltip($token_textbox, $L->{$lang}{TXT_TOOLTIP_TOKEN});
-  $token_textbox->configure(-state => "normal", -textvariable => \$token);
-  $save->configure(-state => "normal");
-  $saveoption = "on";
- }
+ Tkx::tooltip($token_textbox, $L->{$lang}{TXT_TOOLTIP_TOKEN});
+ $token_textbox->configure(-state => "normal", -textvariable => \$token);
+ $save->configure(-state => "normal");
+ $saveoption = "on";
 });
 $progress = $mw->new_ttk__frame(-padding => "3 0 0 0", -relief => "flat");
 my $pbarlen = 0;
@@ -1121,7 +1097,6 @@ $statuslbl->g_grid(-column => 0, -row => 1, -sticky => "w");
 $options->g_grid(-column => 1, -row => 1, -sticky => "e");
 $connect->g_grid(-column => 1, -row => 2, -sticky => "nswe");
 $cancel->g_grid(-column => 0, -row => 1, -sticky => "e");
-# this isn't secret or sensitive either. the password can be anything, so we're using the md5 hash of some random text.
 $password = "93b66e7059176bbfa418061c5cba87dd";
 Tkx::update('idletasks');
 $width  = Tkx::winfo('reqwidth',  $mw);
@@ -1370,9 +1345,7 @@ sub savelogin {
  if ($widget_update_var) {
   print CREDS "widget_update_var=$widget_update_var\n";
  }
- if ($selected_adv_opt2 ne "adaptive") {
-  print CREDS "ip-win32=$selected_adv_opt2\n";
- }
+ print CREDS "mssfix=$selected_adv_opt2\n";
  if ($selected_adv_opt3 ne "adaptive") {
   print CREDS "route-method=$selected_adv_opt3\n";
  }
@@ -1462,7 +1435,7 @@ sub recon {
 
 sub connectt {
  if ($adv_ssh_opt eq "on") {
-  if (($disp_server ne "Global random") && ($disp_server ne "Cryptofree")) {
+  if ($disp_server ne "Global random") {
    my ($index) = grep { $servers[$_] =~ /$disp_server/} (0 .. @servers-1);
    my $tmpnode = $servers[$index];
    $tmpnode =~ s/.*://;
@@ -1876,7 +1849,11 @@ sub read_out {
  my ($lVPNfh) = @_;
  while (defined( my $rline = readline $lVPNfh) ) {
   $rline =~ s/^[0-9\.]+ [0-9a-f]+ //;
-  if (($rline !~ /[UDP|TUN] [READ|WRITE]/) && 
+  if (($rline !~ /[UDPv4|TUN] [READ|WRITE]/) && 
+      ($rline !~ /windows-driver/) &&
+	  ($rline !~ /edirect-gateway and redirect-private/) &&
+	  ($rline !~ /PID_ERR replay/) &&
+	  ($rline !~ /CreateFile failed/) &&
       ($rline !~ /sending exit notification to peer/) &&
       ($rline !~ /\-\-mute/) &&
       ($rline !~ /mode = /) &&
@@ -2188,7 +2165,7 @@ sub backtomain {
   }
  }
  if ($adv_ssh_opt eq "on") {
-  if (($disp_server ne "Global random") && ($disp_server ne "Cryptofree")) {
+  if ($disp_server ne "Global random") {
    my ($index) = grep { $servers[$_] =~ /$disp_server/} (0 .. @servers-1);
    my $tmpnode = $servers[$index];
    $tmpnode =~ s/.*://;
@@ -2833,7 +2810,7 @@ sub killswitch_on {
    }
   }
  }
- my @misc = ('cryptofree:cryptofree:windows:cryptofree.cstorm.is','balancer:balancer:windows:balancer.cstorm.is');
+ my @misc = ('balancer:balancer:windows:balancer.cstorm.is');
  for (@misc) {
   Tkx::update();
   if (/^.*:.*:windows:(.*)$/) {
@@ -3142,28 +3119,22 @@ sub confgen {
   my $tmpline = $tmparray[0];
   $tmpline =~ s/.*://;
   $tmpline =~ s/\.cstorm\.is//;
-  @remote_random = ("$tmpline.cstorm.is", "$tmpline.cstorm.net", "$tmpline.cryptostorm.ch","$tmpline.cryptostorm.pw");
- }
- if ($disp_server eq "Cryptofree") {
-  @remote_random = ("cryptofree.cstorm.is", "cryptofree.cstorm.net", "cryptofree.cryptostorm.ch","cryptofree.cryptostorm.pw");
+  @remote_random = ("$tmpline.cstorm.is", "$tmpline.cstorm.net", "$tmpline.cryptostorm.pw");
  }
  if (($disp_server eq $L->{$lang}{TXT_DEFAULT_SERVER}) || ($server eq $L->{$lang}{TXT_DEFAULT_SERVER})) {
-  @remote_random = ("balancer.cstorm.is", "balancer.cstorm.net", "balancer.cryptostorm.ch","balancer.cryptostorm.pw");
+  @remote_random = ("balancer.cstorm.is", "balancer.cstorm.net", "balancer.cryptostorm.pw");
  }
  if (($tls_sel ne "secp521r1") && ($adv_https_opt eq "on")) {
   $tls_sel = "secp521r1";
  }
  if ($tls_sel eq 'secp521r1') {
-  $vpn_args = "$port_var --client --auth-nocache --auth-user-pass ..\\user\\client.dat --dev tun --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --cipher $cipher_sel --tls-version-min 1.2 --tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
+  $vpn_args = "$port_var --client --auth-nocache --auth-user-pass ..\\user\\client.dat --dev tun --resolv-retry 16 --remote-cert-tls server --down-pre --verb 6 --mute 3 --data-ciphers $cipher_sel --cipher $cipher_sel --tls-version-min 1.2 --tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-crypt ..\\user\\tc.key";
  }
  if ($tls_sel eq 'Ed25519') {
-  $vpn_args = "5061 --client --auth-nocache --auth-user-pass ..\\user\\client.dat --dev tun --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --cipher $cipher_sel --tls-version-min 1.2 --tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
+  $vpn_args = "5061 --client --auth-nocache --auth-user-pass ..\\user\\client.dat --dev tun --resolv-retry 16 --remote-cert-tls server --down-pre --verb 6 --mute 3 --data-ciphers $cipher_sel --cipher $cipher_sel --tls-version-min 1.2 --tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed25519.crt --tls-crypt ..\\user\\tc.key";
  }
  if ($tls_sel eq 'Ed448') {
-  $vpn_args = "5062 --client --auth-nocache --auth-user-pass ..\\user\\client.dat --dev tun --resolv-retry 16 --remote-cert-tls server --compress --down-pre --verb 6 --mute 3 --cipher $cipher_sel --tls-version-min 1.2 --tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
- }
- if ($tls_sel eq 'RSA') {
-  $vpn_args = "$port_var --client --auth-nocache --auth-user-pass ..\\user\\client.dat --auth SHA512 --dev tun --resolv-retry 16 --remote-cert-tls server --down-pre --verb 6 --mute 3 --cipher AES-256-CBC --tls-version-min 1.2 --tls-cipher TLS-ECDHE-RSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA --tls-client --ca ..\\user\\ca_secp521r1.crt --tls-auth ..\\user\\ta.key 0";
+  $vpn_args = "5062 --client --auth-nocache --auth-user-pass ..\\user\\client.dat --dev tun --resolv-retry 16 --remote-cert-tls server --down-pre --verb 6 --mute 3 --data-ciphers $cipher_sel --cipher $cipher_sel --tls-version-min 1.2 --tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
  }
  if ($proto_var eq 'UDP') {
   $vpn_args .= " --proto udp --explicit-exit-notify 3 ";
@@ -3184,9 +3155,10 @@ sub confgen {
   $vpn_args .= ' --dhcp-option DNS 10.31.33.7 ';
  }
  $vpn_args .= ' --machine-readable-output ';
- #vpn_args .= ' --dev-node "cryptostorm" ';
- if ($selected_adv_opt2 ne 'adaptive') {
-  $vpn_args .= " --ip-win32 $selected_adv_opt2 ";
+ #$vpn_args .= ' --dev-node "cryptostorm" ';
+ $vpn_args .= ' --windows-driver tap-windows6 ';
+ if ($selected_adv_opt2 ne 'disabled') {
+  $vpn_args .= " --mssfix $selected_adv_opt2 ";
  }
  if ($selected_adv_opt3 ne 'adaptive') {
   $vpn_args .= " --route-method $selected_adv_opt2 ";
