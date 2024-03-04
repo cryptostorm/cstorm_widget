@@ -17,7 +17,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.55";
+our $VERSION = "3.57";
 use strict;
 use warnings;
 use threads;
@@ -85,7 +85,7 @@ if ($foo) {
  $BUILDVERSION = $foo->{FileVersion};
 }
 else {
- $BUILDVERSION = "3.45.0.0";
+ $BUILDVERSION = "3.57.0.0";
 }
 our $iwasconnected = 0;
 my $masterpid;
@@ -3202,6 +3202,11 @@ sub confgen {
  close(MANPASS);
  $vpn_args .= " --management 127.0.0.1 $manport ..\\user\\manpass.txt ";
  my $random_node = $remote_random[rand @remote_random];
+ if ($random_node !~ /balancer/) {
+  my $cn_host = $random_node;
+  $cn_host =~ s/\..*//;
+  $vpn_args .= qq( --verify-x509-name "cryptostorm $cn_host server" name );
+ }
  if ($adv_https_opt eq "on") {
   my $oldstatus = $statusvar;
   $statusvar = "Starting HTTPS tunnel...";
