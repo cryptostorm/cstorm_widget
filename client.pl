@@ -17,7 +17,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.57";
+our $VERSION = "3.58";
 use strict;
 use warnings;
 use threads;
@@ -85,7 +85,7 @@ if ($foo) {
  $BUILDVERSION = $foo->{FileVersion};
 }
 else {
- $BUILDVERSION = "3.57.0.0";
+ $BUILDVERSION = "3.58.0.0";
 }
 our $iwasconnected = 0;
 my $masterpid;
