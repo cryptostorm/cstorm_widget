@@ -17,7 +17,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.58";
+our $VERSION = "3.59";
 use strict;
 use warnings;
 use threads;
@@ -85,7 +85,7 @@ if ($foo) {
  $BUILDVERSION = $foo->{FileVersion};
 }
 else {
- $BUILDVERSION = "3.58.0.0";
+ $BUILDVERSION = "3.59.0.0";
 }
 our $iwasconnected = 0;
 my $masterpid;
@@ -437,6 +437,9 @@ if ($autosplash_var ne "on") {
  );
  #my $cv = $sr->canvas();
  #$cv->create_text(480, 272, -text => "...", -anchor => 'se', -fill => "green");
+ if ($killswitch_var eq "on") {
+  system(1,"ipconfig /renew");
+ }
  Tkx::after(1000 => sub {
   $sr->g_destroy();
   $mw->g_wm_deiconify();
@@ -1116,23 +1119,6 @@ $y = int((Tkx::winfo('screenheight', $mw)  - $height ) / 2);
 $mw->g_wm_geometry("+$x+$y");
 Tkx::update('idletasks');
 
-if ((-e "..\\user\\all.wfw") || ($killswitch_var eq "on")) {
- $rt = `netsh advfirewall firewall show rule name="cryptostorm"`;
- if ($rt =~ /cryptostorm/) {
-  $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno",
-                                      -message => $L->{$lang}{QUESTION_KILLSWITCH1} . "\n" .
-									              $L->{$lang}{QUESTION_KILLSWITCH2},
-                                      -icon => "question", -title => "cryptostorm.is client");
-  if ($tokillornot eq "yes") {
-   &killswitch_off;
-   $killswitch_var = "off";
-  }
- }
-}
-if (($killswitch_var eq "on") && ($adv_socks_opt eq "on")) {
- Tkx::tk___messageBox(-icon => "info", -message => "The killswitch will be disabled since a SOCKS proxy is being used");
- $killswitch_var = "off";
-}
 if ($dnscrypt_var eq "on") {
  &dnscrypt(1);
 }
@@ -1918,22 +1904,6 @@ sub do_exit {
 	&restore_dns;
 	unlink "..\\user\\mydns.txt";
    }
-   if ((-e "..\\user\\all.wfw") || ($killswitch_var eq "on")) {
-    $rt = `netsh advfirewall firewall show rule name="cryptostorm"`;
-    if ($rt =~ /cryptostorm/) {
-     $tokillornot = Tkx::tk___messageBox(-parent => $mw, -type =>    "yesno",
-                                         -message => $L->{$lang}{QUESTION_KILLSWITCH1} . "\n" .
-										             $L->{$lang}{QUESTION_KILLSWITCH2},
-                                         -icon => "question", -title => "cryptostorm.is client");
-     if ($tokillornot eq "yes") {
-	  Tkx::update();
-      &killswitch_off;
-	  $killswitch_var = "off";
-	  &savelogin;
-	  Tkx::update();
-     }
-    }
-   }
    Tkx::update();
    &nostun_off;
    Tkx::update();
@@ -1945,6 +1915,9 @@ sub do_exit {
    undef $TrayWinHidden if defined $TrayWinHidden;
    if ($doupgrade) {
     system(1,"cryptostorm_setup.exe");
+   }
+   if ($killswitch_var eq "on") {
+    system(1,"ipconfig /renew");
    }
    $stop = 1;
    $done = 1;
@@ -1961,6 +1934,9 @@ sub do_exit {
   }
   Tkx::update();
   if ($cancel->cget(-text) eq $L->{$lang}{TXT_DISCONNECT}) {
+   if ($killswitch_var eq "on") {
+    system(1,"ipconfig /renew");
+   }
    &savelogin;
    if ($adv_ssh_opt eq "on") {
     system(1,"taskkill /IM cs-ssh-tun.exe /F");
@@ -2224,37 +2200,8 @@ sub backtomain {
   }
  }
  Tkx::update();
- if (($killswitch_var eq "on") && ($adv_socks_opt eq "on")) {
-  Tkx::tk___messageBox(-icon => "info", -message => "The killswitch will be disabled since a SOCKS proxy is being used");
-  $killswitch_var = "off";
- }
  &savelogin;
  Tkx::update();
- if ($killswitch_var eq "off") {
-  Tkx::update();
-  &killswitch_off;
-  Tkx::update();
- }
- if ($killswitch_var eq "on") {
-  my $winfirecheck = `net start|findstr "Windows.Firewall"`;
-  if ($winfirecheck =~ /Windows Firewall/) {
-   &killswitch_on;
-   Tkx::update();
-  }
-  else {
-   my $winfire = Tkx::tk___messageBox(-parent => $mw, -type => "yesno",
-                                      -message => $L->{$lang}{QUESTION_WINFIRE1} . " " . $L->{$lang}{QUESTION_WINFIRE2},
-                                      -icon => "question", -title => "cryptostorm.is client");
-   if ($winfire eq "yes") {
-    system("net start MpsSvc");
-    &killswitch_on;
-   }
-   if ($winfire eq "no") {
-    $killswitch_var = "off";
-    &killswitch_off;
-   }
-  }
- }
  $statusvar = $tmpvar;
  &wait4thekill("ipconfig /registerdns");
  Tkx::update();
@@ -2772,226 +2719,6 @@ sub progress_bar {
  sprintf "%.2f%%", 100*$got/+$total;
 }
 
-sub killswitch_on {
- $update->configure(-state => "disabled");
- $options->configure(-state => "disabled");
- $connect->configure(-state => "disabled");
- $cancel->configure(-state => "disabled");
- Tkx::update();
- my $tmpbar = $statusvar;
- $rt = `netsh advfirewall export "..\\user\\all.wfw" 2>&1`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - " . $L->{$lang}{TXT_KILLSWITCH_EXPORT};
-  Tkx::update();
- }
- $statusvar = "Kill switch - " . $L->{$lang}{TXT_KILLSWITCH_GET_VPN} . "...";
- Tkx::update();
- my $vpn_ips;
- for (@nodes) {
-  Tkx::update();
-  if (/^.*:.*:windows:(.*)$/) {
-   $statusvar = "Kill switch - " . $L->{$lang}{TXT_RESOLVING} . " $1...";
-   Tkx::update();
-   @addresses = gethostbyname("$1") or &do_error($L->{$lang}{ERR_CANNOT_RESOLVE} . " $1: $!\n");
-   Tkx::update();
-   if ($#addresses == -1) {
-    $killswitch_var = "off";
-    $update->configure(-state => "normal");
-    $options->configure(-state => "normal");
-    $connect->configure(-state => "normal");
-    $cancel->configure(-state => "normal");
-    return;
-   }
-   @addresses = map { inet_ntoa($_) } @addresses[4 .. $#addresses];
-   Tkx::update();
-   for (@addresses) {
-    Tkx::update();
-	$vpn_ips .= "$_,";
-   }
-  }
- }
- my @misc = ('balancer:balancer:windows:balancer.cstorm.is');
- for (@misc) {
-  Tkx::update();
-  if (/^.*:.*:windows:(.*)$/) {
-   $statusvar = "Kill switch - " . $L->{$lang}{TXT_RESOLVING} . " $1...";
-   Tkx::update();
-   @addresses = gethostbyname("$1") or &do_error($L->{$lang}{ERR_CANNOT_RESOLVE} . " $1: $!\n");
-   Tkx::update();
-   if ($#addresses == -1) {
-    $killswitch_var = "off";
-    $update->configure(-state => "normal");
-    $options->configure(-state => "normal");
-    $connect->configure(-state => "normal");
-    $cancel->configure(-state => "normal");
-    return;
-   }
-   @addresses = map { inet_ntoa($_) } @addresses[4 .. $#addresses];
-   Tkx::update();
-   for (@addresses) {
-    Tkx::update();
-	$vpn_ips .= "$_,";
-   }
-  }
- } 
- Tkx::update();
- $vpn_ips =~ s/,$//;
- my $ddns_ips;
- $statusvar = "Kill switch - " . $L->{$lang}{TXT_KILLSWITCH_GET_DDNS} . "...";
- Tkx::update();
- @addresses = gethostbyname("public.deepdns.net") or &do_error($L->{$lang}{ERR_CANNOT_RESOLVE} . ": $!\n");
- Tkx::update();
- if ($#addresses == -1) {
-  $killswitch_var = "off";
-  $update->configure(-state => "normal");
-  $options->configure(-state => "normal");
-  $connect->configure(-state => "normal");
-  $cancel->configure(-state => "normal");
-  return;
- }
- @addresses = map { inet_ntoa($_) } @addresses[4 .. $#addresses];
- for (@addresses) {
-  Tkx::update();
-  $ddns_ips .= "$_,";
- }
- Tkx::update();
- my $csnu_ips;
- @addresses = gethostbyname("cryptostorm.nu") or &do_error($L->{$lang}{ERR_CANNOT_RESOLVE} . ": $!\n");
- Tkx::update();
- if ($#addresses == -1) {
-  $killswitch_var = "off";
-  $update->configure(-state => "normal");
-  $options->configure(-state => "normal");
-  $connect->configure(-state => "normal");
-  $cancel->configure(-state => "normal");
-  return;
- }
- @addresses = map { inet_ntoa($_) } @addresses[4 .. $#addresses];
- for (@addresses) {
-  $csnu_ips .= "$_,";
- }
- Tkx::update();
- $rt = `netsh advfirewall firewall delete rule name=all`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - deleting current firewall rules";
-  Tkx::update();
- }
- $rt = `netsh advfirewall set allprofiles state on`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - turning on all profiles";
-  Tkx::update();
- }
- $rt = `netsh advfirewall set privateprofile firewallpolicy blockinbound,blockoutbound`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - private profile, blocking in/out";
-  Tkx::update();
- }
- $rt = `netsh advfirewall set domainprofile firewallpolicy blockinbound,blockoutbound`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - domain profile, blocking in/out";
-  Tkx::update();
- }
- $rt = `netsh advfirewall set publicprofile firewallpolicy blockinbound,allowoutbound`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - public profile, blocking in/out";
-  Tkx::update();
- }
- $ddns_ips =~ s/,$//;
- $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=in action=allow remoteip=LocalSubnet`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - allow local subnet in";
-  Tkx::update();
- }
- $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=out action=allow remoteip=LocalSubnet`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - allow local subnet out";
-  Tkx::update();
- }
- $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=out action=allow program="%%SystemRoot%%\\system32\\svchost.exe" localip=0.0.0.0 localport=68 remoteip=255.255.255.255 remoteport=67 protocol=UDP`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - allow DHCP out";
-  Tkx::update();
- }
- my @vpn_ips_arr = split(/,/,$vpn_ips);
- $vpn_ips = '';
- for (my $i=0; $i <= $#vpn_ips_arr; $i++) {
-  $vpn_ips .= $vpn_ips_arr[$i] . ",";
-  if ($i % 100 == 0) {
-   $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=out action=allow remoteip=$vpn_ips`;
-   if ($rt =~ /Ok./) {
-    $statusvar = "Kill switch - allow VPN IPs";
-    Tkx::update();
-   }
-   $vpn_ips = '';   
-  }
- }
- $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=out action=allow remoteip=$ddns_ips`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - allow DeepDNS IPs";
-  Tkx::update();
- }
- $csnu_ips =~ s/,$//;
- $rt = `netsh advfirewall firewall add rule name="cryptostorm" dir=out action=allow remoteip=$csnu_ips`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - allow cryptostorm.nu";
-  Tkx::update();
- }
- $rt = `netsh advfirewall set allprofiles settings inboundusernotification disable`;
- if ($rt =~ /Ok./) {
-  $statusvar = "Kill switch - disable notifications";
-  Tkx::update();
- }
- $statusvar = $tmpbar;
- $update->configure(-state => "normal");
- $options->configure(-state => "normal");
- $connect->configure(-state => "normal");
- $cancel->configure(-state => "normal");
- Tkx::update();
-}
-
-sub killswitch_off {
- my $tmpbar = $statusvar;
- $update->configure(-state => "disabled");
- $options->configure(-state => "disabled");
- $connect->configure(-state => "disabled");
- $cancel->configure(-state => "disabled");
- Tkx::update();
- if ((-e "..\\user\\all.wfw") || ($killswitch_var eq "on")) {
-  $rt = `netsh advfirewall import "..\\user\\all.wfw"`;
-  if ($rt =~ /Ok./) {
-   $statusvar = "Imported previous firewall rules";
-   Tkx::update();
-  }
-  $rt = `netsh advfirewall firewall show rule name="cryptostorm"`;
-  $statusvar = "Kill switch is enabled, disabling...";
-  Tkx::update();
-  if ($rt =~ /cryptostorm/) {
-   $rt = `netsh advfirewall firewall del rule name="cryptostorm"`;
-   if ($rt =~ /Ok./) {
-    $statusvar = "Kill switch firewall rules deleted";
-    Tkx::update();
-   }
-   $rt = `netsh advfirewall set allprofiles settings inboundusernotification enable`;
-   if ($rt =~ /Ok./) {
-    $statusvar = "Firewall notifications enabled";
-    Tkx::update();
-   }
-   $rt = `netsh advfirewall set allprofiles firewallpolicy BlockInbound,AllowOutbound`;
-   if ($rt =~ /Ok./) {
-    $statusvar = "Firewall profile policies restored";
-    Tkx::update();
-   }
-  }
-  unlink("..\\user\\all.wfw");
- }
- $statusvar = $tmpbar;
- $update->configure(-state => "normal");
- $options->configure(-state => "normal");
- $connect->configure(-state => "normal");
- $cancel->configure(-state => "normal");
- Tkx::update();
-}
-
 sub killcx {
  my $port = $_[0];
  for ($kcxt=0;$kcxt<=5;$kcxt++) {
@@ -3147,6 +2874,10 @@ sub confgen {
  }
  if ($dnsleak_var eq "off") {
   $vpn_args .= " --pull-filter ignore \"block-outside-dns\" ";
+ }
+ if ($killswitch_var eq "on") {
+  $vpn_args .= " --pull-filter ignore \"redirect-gateway def1\" ";
+  $vpn_args .= " --redirect-gateway ";
  }
  if ($noipv6_var eq "on") {
   $vpn_args .= ' --block-ipv6 ';
