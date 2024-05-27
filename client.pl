@@ -17,7 +17,7 @@ if (-d "\\Program Files\\Cryptostorm Client\\bin") {
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.59";
+our $VERSION = "3.60";
 use strict;
 use warnings;
 use threads;
@@ -85,7 +85,7 @@ if ($foo) {
  $BUILDVERSION = $foo->{FileVersion};
 }
 else {
- $BUILDVERSION = "3.59.0.0";
+ $BUILDVERSION = "3.60.0.0";
 }
 our $iwasconnected = 0;
 my $masterpid;
@@ -928,24 +928,6 @@ $userlbl->insert('insert', ".\n");
 $userlbl->configure(-width => 55, -height => 10, -borderwidth => 0, -state=> 'disabled', -font => "TkTextFont", -cursor => 'arrow', -wrap => 'none', -background => 'gray95');
 $frame2 = $mw->new_ttk__frame(-relief => "flat");
 $token_textbox = $frame2->new_ttk__entry(-textvariable => \$token, -width => 27, -font => "token_font", -state => "normal");
-Tkx::bind($token_textbox,"<3>", [ sub {
- my($x,$y) = @_;
- my $current_window = Tkx::winfo('containing',$x,$y);
- my $pop_menu = $token_textbox->new_menu;
- my $popup_menu = $pop_menu->new_menu(-tearoff => 0,);
- $popup_menu->add_command(-label => $L->{$lang}{TXT_COPY}, -state => ((($token =~ /^([a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5})$/) ||
-                                                                       ($token =~ /^([a-f0-9]{128})$/)) ? "normal" : "disabled"), -underline => 1, -command => [ sub {
-  Tkx::clipboard("clear");
-  Tkx::clipboard("append",$token);
- }]);
- my $clipboard = $clip->Get();
- $popup_menu->add_command(-label => $L->{$lang}{TXT_PASTE}, -state => ((($clipboard =~ /^([a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5})$/) ||
-                                                                        ($clipboard =~ /^([a-f0-9]{128})$/)) ? "normal" : "disabled"), -underline => 1, -command => [ sub {
-  $token = $clipboard;
- }]);
- $popup_menu->g_tk___popup($x,$y)
-}
-,Tkx::Ev('%X','%Y') ] );
 $server_textbox = $frame2->new_ttk__combobox(-textvariable => \$disp_server, -width => 29, -state => "readonly");
 @disp_servers = ($L->{$lang}{TXT_DEFAULT_SERVER});
 open(NODELIST, "$nodelistfile") || &do_error($L->{$lang}{ERR_CANT_OPEN} . " $nodelistfile");
@@ -1118,6 +1100,24 @@ $x = int((Tkx::winfo('screenwidth',  $mw)  - $width  ) / 2);
 $y = int((Tkx::winfo('screenheight', $mw)  - $height ) / 2);
 $mw->g_wm_geometry("+$x+$y");
 Tkx::update('idletasks');
+
+Tkx::bind($token_textbox,"<3>", [ sub {
+ my($x,$y) = @_;
+ my $current_window = Tkx::winfo('containing',$x,$y);
+ my $pop_menu = $token_textbox->new_menu;
+ my $popup_menu = $pop_menu->new_menu(-tearoff => 0,);
+ $popup_menu->add_command(-label => $L->{$lang}{TXT_COPY}, -state => ((($token =~ /^([a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5})$/) ||
+                                                                       ($token =~ /^([a-f0-9]{128})$/)) ? "normal" : "disabled"), -underline => 1, -command => [ sub {
+  Tkx::clipboard("clear");
+  Tkx::clipboard("append",$token);
+ }]);
+ my $clipboard = $clip->Get();
+ $popup_menu->add_command(-label => $L->{$lang}{TXT_PASTE}, -state => ((($clipboard =~ /^([a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5}\-[a-zA-Z0-9]{5})$/) || ($clipboard =~ /^([a-f0-9]{128})$/)) ? "normal" : "disabled"), -underline => 1, -command => [ sub {
+  $token = $clipboard;
+ }]);
+ $popup_menu->g_tk___popup($x,$y)
+}
+,Tkx::Ev('%X','%Y') ] );
 
 if ($dnscrypt_var eq "on") {
  &dnscrypt(1);
