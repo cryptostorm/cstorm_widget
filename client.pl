@@ -1,23 +1,21 @@
-#-d:Trace
-#$Devel::Trace::TRACE = 1;
-#BEGIN {
-# my $trace_file = "\\Program Files (x86)\\Cryptostorm Client\\user\\mytrace.$$.txt";
-# print STDERR "Saving trace to $trace_file\n";
-# open my $fh, '>>', $trace_file;
-# sub DB::DB {
-#  my ($package, $file, $line ) = caller;
-#  my $code = \@{"::_<$file"};
-#  print $fh "[@{[time]}] $file $line $code->[$line]" if ($file =~ /client.pl/);
-#  print "[@{[time]}] $file $line $code->[$line]" if ($file =~ /client/);
-# }
-#}
+our $VERSION;
+BEGIN {
+    $VERSION = "3.64";
+    $ENV{PAR_CACHE_ID} = "cswidget_v$VERSION";
+    $ENV{PAR_GLOBAL_TEMP} = 0;
+    my $par_user = sprintf("%x", 0x61636f726e + $$);
+    $ENV{MYAPP_PAR_PATH} = "$ENV{TEMP}/par-$par_user/cache-$ENV{PAR_CACHE_ID}";
+    mkdir $ENV{MYAPP_PAR_PATH} unless -d $ENV{MYAPP_PAR_PATH};
+}
+use PAR;
+use lib "$ENV{MYAPP_PAR_PATH}/inc/lib";
+use lib "$ENV{MYAPP_PAR_PATH}/inc";
 if (-d "\\Program Files\\Cryptostorm Client\\bin") {
  chdir("\\Program Files\\Cryptostorm Client\\bin\\");
 }
 if (-d "\\Program Files (x86)\\Cryptostorm Client\\bin") {
  chdir("\\Program Files (x86)\\Cryptostorm Client\\bin\\");
 }
-our $VERSION = "3.63";
 use strict;
 use warnings;
 use threads;
@@ -62,7 +60,6 @@ our @animation = qw( \ | / -- );
 our @output;
 our @resolved_ips;
 our @addresses;
-our @favs : shared;
 our @remote_random = ();
 our $rt;
 our $manpass;
@@ -87,7 +84,7 @@ if ($foo) {
  $BUILDVERSION = $foo->{FileVersion};
 }
 else {
- $BUILDVERSION = "3.63.0.0";
+ $BUILDVERSION = "3.64.0.0";
 }
 our $iwasconnected = 0;
 my $masterpid;
@@ -136,9 +133,6 @@ my $idle = 0;
 my $update_var = "on";
 my $randomize_it = "off";
 my $tokillornot;
-my $dns_choice_opt = "off";
-our $fav_combo;
-our $fav_button;
 our @msgs;
 our $thread;
 my @tmparray;
@@ -173,7 +167,7 @@ my $tmp_dnscrypt_var;
 our $port_var = "443";
 my $proto_var = "UDP";
 my @protos = ('UDP', 'TCP');
-my @tlses = ('secp521r1','Ed25519','Ed448');
+my @tlses = ('secp521r1','Ed25519','Ed448','ML-DSA-87');
 my $tls_sel = 'secp521r1';
 my $cipher_sel = 'AES-256-GCM';
 my $selected_adv_opt2 = "1400";
@@ -251,15 +245,9 @@ if (-e "$authfile") {
   if (/^randomport=(.*)$/) {
    $randomize_it = $1;
   }
-  if (/^dnschoice_opt=(.*)$/) {
-   $dns_choice_opt = $1;
-  }
   if ((/^lang=(.*)$/) && ($ARGV[0] ne "/LANG")) {
    $lang = $1;
    $sel_lang = $1;
-  }
-  if (/^favs=(.*)$/) {
-   @favs = split(/,/,$1);
   }
   if (/^mssfix=(.*)$/) {
    $selected_adv_opt2 = $1;
@@ -426,7 +414,6 @@ $verstuff = `$vpnexe --version 2>&1`;
 if ($verstuff =~ /OpenVPN ([0-9\.]+)/) {
  $ovpnver = $1;
 }
-$verstuff = `$osslexe version 2>&1`;
 if ($verstuff =~ /OpenSSL ([0-9\.a-z]+)/) {
  $osslver = $1;
 }
@@ -519,45 +506,42 @@ if ($#langs > 0) {
  $lbl_lang->g_grid(-column => 0, -row => 6, -sticky => "w");
  $lang_update->g_grid(-column => 0, -row => 6, -sticky => "e");
 }
-
+my $port_textbox_state;
+my $random_port_check_state;
+sub port_random {
+ if (($randomize_it eq "on") && ($tls_sel eq 'secp521r1')) {
+  $port_var = int(rand(29998) + 1);
+  if (($port_var == 5061) || ($port_var == 5062) || ($port_var == 5063)) {
+   $port_var = $port_var + int(rand(1000 - 5));
+  }
+ }
+ if (($randomize_it eq "off") && ($tls_sel eq 'secp521r1')) {
+  $port_var = 443;
+ }
+ if ($tls_sel =~ /(Ed25519|Ed448|ML-DSA-87)/) {
+  if ($1 eq "Ed25519") { $port_var = 5061; }
+  if ($1 eq "Ed448") { $port_var = 5062; }
+  if ($1 eq "ML-DSA-87") { $port_var = 5063; }
+  $port_textbox_state = "disabled";
+  $random_port_check_state = "disabled";
+ }
+ else {
+  $port_textbox_state = "normal";
+  $random_port_check_state = "normal";
+ }
+}
+&port_random;
 $o_innerframe2->new_ttk__label(-text => $L->{$lang}{TXT_CONNECT_PORT})->g_pack();
-my $port_textbox = $o_innerframe2->new_ttk__entry(-textvariable => \$port_var, -width => 6)->g_pack();
+my $port_textbox = $o_innerframe2->new_ttk__entry(-textvariable => \$port_var, -width => 6, -state => $port_textbox_state)->g_pack();
 $o_innerframe2->new_ttk__label(-text => $L->{$lang}{TXT_CONNECT_PROTOCOL})->g_pack();
 my $proto_textbox = $o_innerframe2->new_ttk__combobox(-textvariable => \$proto_var, -values => \@protos, -width => 4, -state=> (($adv_ssh_opt eq "on") || ($adv_https_opt eq "on") || ($adv_socks_opt eq "on")) ? "disabled" : "readonly")->g_pack();
 $o_innerframe2->new_ttk__label(-text => $L->{$lang}{TXT_TIMEOUT})->g_pack();
 my @timeouts = (60, 120, 180, 240);
 my $timeout_textbox = $o_innerframe2->new_ttk__combobox(-textvariable => \$timeout_var, -values => \@timeouts, -width => 4, -state=>"readonly")->g_pack();
+# .t.n.f2.c3
 $o_innerframe2->new_ttk__checkbutton(-text => $L->{$lang}{TXT_RANDOM_PORT}, -variable => \$randomize_it, -onvalue => "on", -offvalue => "off", -command => sub {
- if ($randomize_it eq "on") {
-  $port_var = int(rand(29998) + 1);
-  if (($port_var == 5061) || ($port_var == 5062)) {
-   $port_var = $port_var + int(rand(1000 - 5));
-  }
- }
- if ($randomize_it eq "off") {
-  $port_var = 443;
- }
- })->g_pack(qw/-anchor n/);
-$o_innerframe2->new_ttk__checkbutton(-text => $L->{$lang}{TXT_LET_ME_CHOOSE_EXIT}, -variable => \$dns_choice_opt, -onvalue => "on", -offvalue => "off")->g_pack();
-my $selected_fav;
-if ($#favs > -1) {
- $selected_fav = $favs[0];
- $fav_combo = $o_innerframe2->new_ttk__combobox(-textvariable => \$selected_fav, -values => \@favs, -width => 15, -state => "readonly")->g_pack();
- $fav_button = $o_innerframe2->new_ttk__button(-text => $L->{$lang}{TXT_FORGET}, -command => sub {
-  @favs = grep !/$selected_fav/, @favs;
-  if ($#favs == -1) {
-   undef $fav_combo;
-   undef $fav_button;
-   Tkx::destroy(".t.n.f2.c5");
-   Tkx::destroy(".t.n.f2.b");
-  }
-  else {
-   $selected_fav = $favs[0];
-   %stupidstrictrefs = (Tkx => \&{"Tkx::.t.n.f2.c5_configure"} );
-   &{ $stupidstrictrefs{'Tkx'} }(-values => \@favs, -textvariable => \$selected_fav);	
-  }
- })->g_pack();
-}
+ &port_random;
+ }, -state => $random_port_check_state)->g_pack(qw/-anchor n/);
 my $lbl_top = $o_innerframe4->new_ttk__label(-text => "Advanced options\n");
 my @adv_opts2 = ('disabled','1300','1400','1500','1600');
 my $adv_label2 = $o_innerframe4->new_ttk__label(-text => "--mssfix:  ");
@@ -899,18 +883,45 @@ $o_tabs->add($o_innerframe2, -text => $L->{$lang}{TXT_CONNECTING});
 $o_tabs->add($o_innerframe3, -text => $L->{$lang}{TXT_SECURITY});
 $o_tabs->add($o_innerframe4, -text => "Advanced");
 
-if ($randomize_it eq "on") {
- $port_var = int(rand(29998) + 1);
- if (($port_var == 5061) || ($port_var == 5062)) {
-  $port_var = $port_var + int(rand(1000 - 5));
+
+sub sel_tls {
+ if ($tls_sel eq 'Ed25519') {
+  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.e_configure"} );
+  &{ $stupidstrictrefs{'Tkx'} }(-state=>"disabled");
+  $port_var = 5061;
+  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.c3_configure"} );
+  &{ $stupidstrictrefs{'Tkx'} }(-state=>"disabled");
  }
-}
-else {
- $port_var = 443;
+ if ($tls_sel eq 'Ed448') {
+  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.e_configure"} );
+  &{ $stupidstrictrefs{'Tkx'} }(-state=>"disabled");
+  $port_var = 5062;
+  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.c3_configure"} );
+  &{ $stupidstrictrefs{'Tkx'} }(-state=>"disabled");
+ }
+ if ($tls_sel eq 'ML-DSA-87') {
+  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.e_configure"} );
+  &{ $stupidstrictrefs{'Tkx'} }(-state=>"disabled");
+  $port_var = 5063;
+  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.c3_configure"} );
+  &{ $stupidstrictrefs{'Tkx'} }(-state=>"disabled");
+ }
+ if ($tls_sel eq 'secp521r1') {
+  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.e_configure"} );
+  &{ $stupidstrictrefs{'Tkx'} }(-state=>"normal");
+  &port_random;
+  %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.c3_configure"} );
+  &{ $stupidstrictrefs{'Tkx'} }(-state=>"normal");
+ }
+ return 0;
 }
 my $i3_blank_lbl = $o_innerframe3->new_ttk__label(-text => "\n");
 my $ecc_lbl = $o_innerframe3->new_ttk__label(-text => "TLS cipher");
-my $tls_sel_opt = $o_innerframe3->new_ttk__combobox(-textvariable => \$tls_sel, -values => \@tlses, -width => 9, -state=> 'readonly');
+# .t.n.f3.c
+my $tls_sel_opt = $o_innerframe3->new_ttk__combobox(-textvariable => \$tls_sel, -values => \@tlses, -width => 12, 
+                                 -state=> 'readonly', -validate => "focusout", -validatecommand => sub {
+ &sel_tls;
+});
 my $cipher_lbl = $o_innerframe3->new_ttk__label(-text => "data cipher");
 my $cipher_sel_opt = $o_innerframe3->new_ttk__combobox(-textvariable => \$cipher_sel, -values => ['AES-256-GCM','CHACHA20-POLY1305'], -width => 20, -state=> 'readonly');
 my $ipv6_disable_opt = $o_innerframe3->new_ttk__checkbutton(-text => $L->{$lang}{TXT_DISABLE_IPV6}, -variable => \$noipv6_var, -onvalue => "on", -offvalue => "off");
@@ -960,7 +971,7 @@ $userlbl->insert('insert', "\n \n");
 $userlbl->insert('insert', $L->{$lang}{TXT_MAINWINDOW5} . " ");
 $userlbl->insert('insert', $L->{$lang}{TXT_HERE}, 'link3');
 $userlbl->insert('insert', ".\n");
-$userlbl->configure(-width => 55, -height => 10, -borderwidth => 0, -state=> 'disabled', -font => "TkTextFont", -cursor => 'arrow', -wrap => 'none', -background => 'gray95');
+$userlbl->configure(-width => 55, -height => 10, -borderwidth => 0, -state=> 'disabled', -font => "TkTextFont", -cursor => 'arrow', -wrap => 'none', -background => 'SystemButtonFace');
 $frame2 = $mw->new_ttk__frame(-relief => "flat");
 $token_textbox = $frame2->new_ttk__entry(-textvariable => \$token, -width => 27, -font => "token_font", -state => "normal");
 $server_textbox = $frame2->new_ttk__combobox(-textvariable => \$disp_server, -width => 29, -state => "readonly");
@@ -1349,17 +1360,6 @@ sub savelogin {
  if ($sel_lang =~ /(.*)/) {
   print CREDS "lang=$1\n";
  }
- if ($dns_choice_opt =~ /(on|off)/) {
-  print CREDS "dnschoice_opt=$1\n";
- }
- if ($#favs > -1) {
-  my $fav_ips;
-  for (@favs) {
-   $fav_ips .= "$_,";
-  }
-  $fav_ips =~ s/,$//;
-  print CREDS "favs=$fav_ips\n";
- }
  if ($proto_var =~ /(UDP|TCP)/) {
   print CREDS "proto=$1\n";
  }
@@ -1553,7 +1553,7 @@ sub connectt {
  Tkx::update();
  if ($randomize_it eq "on") {
   $port_var = int(rand(29998) + 1);
-  if (($port_var == 5061) || ($port_var == 5062)) {
+  if (($port_var == 5061) || ($port_var == 5062) || ($port_var == 5063)) {
    $port_var = $port_var + int(rand(1000 - 5));
   }
  }
@@ -1601,40 +1601,6 @@ sub connectt {
   alarm 0;
   @resolved_ips = ();
   return;
- }
- if (($adv_https_opt eq "on") || ($adv_ssh_opt eq "on")) {
-  $dns_choice_opt = "off";
- }
- if (($#resolved_ips > 0) && ($dns_choice_opt eq "on")) {
-  alarm 0;
-  my $skipchoice = 0;
-  
-  for (@resolved_ips) {
-   my $tmpres = $_;
-   for (@favs) {
-    my $tmpfav = $_;
-    if ($tmpres =~ /$_/) {
-     $skipchoice = 1;
-     $chosen_ip = $_;
-     $statusvar = $L->{$lang}{TXT_CONNECTING_TO} . " " . $L->{$lang}{TXT_PREV_SELECT} . " $chosen_ip...";
-     Tkx::update();
-    }
-   }
-  }
-  if (!$skipchoice) {
-   $chosen_ip = &dnsw;
-   if (!$chosen_ip) {
-    $chosen_ip = $resolved_ips[0];
-   }	
-   $statusvar = $L->{$lang}{TXT_CONNECTING_TO} . " $chosen_ip...";
-   Tkx::update();
-  }
-  $vpn_args =~ s/remote ([a-zA-Z0-9\.\-]+)/remote $chosen_ip/g;
-  Tkx::update();
- }
- if (($#resolved_ips == 0) && ($dns_choice_opt eq "on")) {
-  $statusvar = $L->{$lang}{TXT_SKIP_CHOICE};
-  Tkx::update();
  }
  $statusvar = $L->{$lang}{TXT_CONNECTING} . "...";
  Tkx::update();
@@ -1968,7 +1934,7 @@ sub do_exit {
    Tkx::update();
    system(1,"TASKKILL /F /T /IM $vpnexe");
    Tkx::update();
-   $TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
+   #$TrayWinHidden->Open->Remove() if defined $TrayWinHidden;
    undef $TrayWinHidden if defined $TrayWinHidden;
    if ($doupgrade) {
     system(1,"cryptostorm_setup.exe");
@@ -2191,34 +2157,6 @@ sub do_options {
  $cw->g_raise();
  $cw->g_wm_deiconify();
  $cw->g_focus();
- if ($#favs > -1) {
-  $selected_fav = $favs[0];
-  if (defined($fav_combo)) {
-   # the "beyond ugly" solution at https://www.perlmonks.org/?node_id=740013 works,
-   # but will fail with strict refs. this works with strict refs:
-   %stupidstrictrefs = (
-    Tkx => \&{"Tkx::.t.n.f2.c5_configure"}
-   );
-   &{ $stupidstrictrefs{'Tkx'} }(-values => \@favs);
-  }
-  else {
-   $fav_combo = $o_innerframe2->new_ttk__combobox(-textvariable => \$selected_fav, -values => \@favs, -width => 15, -state => "readonly")->g_pack();
-   $fav_button = $o_innerframe2->new_ttk__button(-text => "Forget", -command => sub {
-    @favs = grep !/$selected_fav/, @favs;
-    if ($#favs == -1) {
-     undef $fav_combo;
-     undef $fav_button;
-     Tkx::destroy(".t.n.f2.c5");
-     Tkx::destroy(".t.n.f2.b");
-    }
-    else {
-     $selected_fav = $favs[0];
-     %stupidstrictrefs = ( Tkx => \&{"Tkx::.t.n.f2.c5_configure"} );
-     &{ $stupidstrictrefs{'Tkx'} }(-values => \@favs, -textvariable => \$selected_fav);	
-    }
-   })->g_pack();
-  }
- }
  Tkx::update();
 }
 
@@ -2858,66 +2796,6 @@ sub genpass {
  return join '' => map $chars[rand @chars], 0 .. int(rand(100))+20;
 }
 
-sub dnsw {
- my $dnsw = $mw->new_toplevel;
- $dnsw->g_wm_withdraw();
- Tkx::wm_title($dnsw, "");
- Tkx::wm_iconphoto($dnsw, "mainicon");
- $dnsw->g_wm_resizable(0,0);
- Tkx::wm_attributes($dnsw, -toolwindow => 1, -topmost => 1);
- my $dnsw_frame1 = $dnsw->new_ttk__frame();
- my $dnsw_label = $dnsw_frame1->new_ttk__label(-justify => "center", -compound => 'top', -text => "\n" . $L->{$lang}{TXT_CHOOSE_IP} . ":\n");
- my $dnsw_row = 2;
- my $dnsw_col = 0;
- my $the_ip;
- for (@resolved_ips) {
-  $dnsw_frame1->new_ttk__radiobutton(-text => "$_", -variable => \$the_ip, -value => "$_")->g_grid(-column => $dnsw_col, -row => $dnsw_row, -sticky => "we");
-  $dnsw_row++;
-  if ($dnsw_row % 10 == 0) {
-   $dnsw_col++;
-   $dnsw_row=2;
-  }
- }
- my $dnsw_button = $dnsw->new_ttk__button(-text => "Ok", -command => sub {
-  $dnsw->g_destroy();
-  Tkx::update();
- });
- $dnsw->g_wm_protocol('WM_DELETE_WINDOW', sub {
-  $dnsw->g_destroy();
-  Tkx::update();
- });
- my $dns_choice_member;
- my $dnsw_checkbox = $dnsw->new_ttk__checkbutton(-text => $L->{$lang}{TXT_REMEMBER}, -variable => \$dns_choice_member, -onvalue => "on", -offvalue => "off");
- $dnsw_frame1->g_grid(-column => 0, -row => 0);
- $dnsw_label->g_grid(-column => 0, -row => 0);
- $dnsw_row++;
- $dnsw_button->g_grid(-column => 0, -row => $dnsw_row);
- $dnsw_row++;
- $dnsw_checkbox->g_grid(-column => 0, -row => $dnsw_row);
- Tkx::update('idletasks');
- my $width  ||= Tkx::winfo('reqwidth',  $dnsw);
- my $height ||= Tkx::winfo('reqheight', $dnsw);
- my $x = int((Tkx::winfo('screenwidth',  $dnsw) / 2) - ($width / 2));
- my $y = int((Tkx::winfo('screenheight', $dnsw) / 2) - ($height / 2));
- $dnsw->g_wm_geometry($width . "x" . $height . "+" . $x . "+" . $y);
- $dnsw->g_bind("<Return>", sub { $dnsw_button->invoke(); });
- $dnsw_button->g_bind("<Return>", sub { $dnsw_button->invoke(); });
- $dnsw_label->g_bind("<Return>", sub { $dnsw_button->invoke(); });
- $dnsw_frame1->g_bind("<Return>", sub { $dnsw_button->invoke(); });
- $dnsw->g_bind("<Escape>", sub { $dnsw_button->invoke(); });
- $dnsw_button->g_bind("<Escape>", sub { $dnsw_button->invoke(); });
- $dnsw_label->g_bind("<Escape>", sub { $dnsw_button->invoke(); });
- $dnsw_frame1->g_bind("<Escape>", sub { $dnsw_button->invoke(); });
- $dnsw->g_raise();
- $dnsw->g_wm_deiconify();
- $dnsw->g_focus();
- Tkx::tkwait("window",$dnsw);
- if ($dns_choice_member eq "on") {
-  push(@favs,"$the_ip");
- }
- return $the_ip;
-}
-
 sub preresolve {
  my $chosen_node = $_[0];
  $chosen_node =~ s/cstorm\.is.*/cstorm.is/;
@@ -3023,11 +2901,24 @@ sub confgen {
  if ($tls_sel eq 'Ed448') {
   $vpn_args = "5062 --client --auth-nocache --auth-user-pass ..\\user\\client.dat --dev tun --resolv-retry 16 --remote-cert-tls server --down-pre --verb 6 --mute 3 --data-ciphers $cipher_sel --cipher $cipher_sel --tls-version-min 1.2 --tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384 --tls-cipher TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256:TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_ed448.crt --tls-crypt ..\\user\\tc.key";
  }
+ if ($tls_sel eq 'ML-DSA-87') {
+  $vpn_args = "5063 --client --auth-nocache --auth-user-pass ..\\user\\client.dat --dev tun --resolv-retry 16 --remote-cert-tls server --down-pre --verb 6 --mute 3 --data-ciphers AES-256-GCM --cipher AES-256-GCM --tls-version-min 1.2 --tls-ciphersuites TLS_AES_256_GCM_SHA384 --tls-cipher TLS-ECDHE-ECDSA-WITH-AES-256-GCM-SHA384 --tls-client --ca ..\\user\\ca_mldsa87.crt --tls-crypt ..\\user\\tc.key";
+ }
  if ($proto_var eq 'UDP') {
-  $vpn_args .= " --proto udp --explicit-exit-notify 3 ";
+  if ($noipv6_var eq 'on') {
+   $vpn_args .= " --proto udp4 --explicit-exit-notify 3 ";
+  }
+  else {
+   $vpn_args .= " --proto udp --explicit-exit-notify 3 ";
+  }
  }
  if ($proto_var eq 'TCP') {
-  $vpn_args .= " --proto tcp ";
+  if ($noipv6_var eq 'on') {
+   $vpn_args .= " --proto tcp4 ";
+  }
+  else {
+   $vpn_args .= " --proto tcp ";
+  }
  }
  if ($dnsleak_var eq "on") {
   $vpn_args .= " --block-outside-dns ";
