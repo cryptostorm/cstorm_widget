@@ -1,0 +1,630 @@
+;To add another language, Russian for example, you would add a Russian = line to each entry:
+;ERR_AUTH_FAIL
+;  English = Authorization failed
+;  Japanese = 認証失敗
+;  Swedish = Auktorisering misslyckades
+;  Russian = Авторизация не удалась
+;Then continue to do the same for all the remaining text strings. There must be two spaces before the language name.
+;You can also use the native script for the language name, such as 'Русский' instead of 'Russian'.
+;New languages should be detected automatically, as long as every entry from ERR_AUTH_FAIL to TXT_WINTUN_STOPPED_AND_UNINSTALLED 
+;has translations for the new language.
+
+ERR_AUTH_FAIL
+  English = Authorization failed
+  Japanese = 認証失敗
+  Swedish = Auktorisering misslyckades
+
+ERR_AUTO_CONNECT
+  English = Autoconnect disabled due to error. Re-enable it in Options.
+  Japanese = エラーによって自動接続機能は無効になりました。 「オプション」からリセットして下さい。
+  Swedish = Auto-anslutning inaktiverad på grund av ett fel. Aktivera det i alternativ.
+
+ERR_RESOLVE
+  English = Cannot resolve hostname
+  Japanese = ホスト名を解決できません
+  Swedish = Kan inte lösa värdnamnet
+
+ERR_OPEN
+  English = Can't open
+  Japanese = 開くことができません
+  Swedish = Kan inte öppna
+
+ERR_WRITE
+  English = Can't write to
+  Japanese = ここに書き込むことができません：
+  Swedish = Kan inte skriva till
+
+ERR_CONNECT_GENERIC
+  English = Connected with errors
+  Japanese = 接続できましたが、エラーが発生しました
+  Swedish = Ansluten med fel
+
+ERR_CREATE
+  English = Cannot create file
+  Japanese = ファイル作成できません
+  Swedish = Kan inte skapa fil
+
+ERR_DOWNLOAD
+  English = Could not download
+  Japanese = ダウンロードできませんでした
+  Swedish = Kunde inte ladda ner
+
+ERR_NO_FREE_PORT
+  English = Cannot find free port
+  Japanese = 空いてるポートが見つかりませんでした
+  Swedish = Kan inte hitta ledig port
+
+ERR_INVALID_SOCKS_IP
+  English = Invalid IP specified for SOCKS proxy
+  Japanese = SOCKSプロキシに無効なIPが指定されました
+  Swedish = Ogiltig IP angiven för SOCKS-proxy
+  
+ERR_INVALID_SOCKS_PORT
+  English = Invalid SOCKS port
+  Japanese = 無効なSOCKSポート
+  Swedish = Ogiltig SOCKS-port
+
+ERR_INVALID_TOKEN1
+  English = Token does not appear to be valid
+  Japanese = このトークンは有効ではないように見えます
+  Swedish = Token verkar inte vara giltigt
+
+ERR_INVALID_TOKEN2
+  English = (Note that tokens include the dashes)
+  Japanese = （ハイフンを省略しないようにご注意ください）
+  Swedish = (Observera att tokens inkluderar bindestrecken)
+
+ERR_KILLSWITCH_EXPORT
+  English = Failed to export rules:
+  Japanese = ルールのエクスポートに失敗しました:
+  Swedish = Misslyckades med att exportera regler:
+
+ERR_KILLSWITCH_FW_TOGGLE
+  English = Failed to toggle firewall rule
+  Japanese = ファイアウォールルールの切り替えに失敗しました
+  Swedish = Misslyckades med att aktivera och växla brandväggsregel
+
+ERR_KILLSWITCH_FW_ADD
+  English = Failed to add firewall rule
+  Japanese = ファイアウォールルールの追加に失敗しました
+  Swedish = Misslyckades med att lägga till brandväggsregel
+
+ERR_KILLSWITCH_FW_DEL
+  English = Failed to delete firewall rule
+  Japanese = ファイアウォールルールの削除に失敗しました
+  Swedish = Misslyckades med att ta bort brandväggsregel
+  
+ERR_MENU
+  English = Creating Menu failed
+  Japanese = メニュー初期化失敗
+  Swedish = Skapa meny misslyckades
+
+ERR_NEED_ADMIN
+  English = This program requires Administrator privileges
+  Japanese = このプログラムは管理者特権が必要です
+  Swedish = Det här programmet kräver administratörsbehörighet
+
+ERR_NO_TOKEN
+  English = You didn't enter a token
+  Japanese = トークンは入力されていません
+  Swedish = Du skrev inte in ett token
+
+ERR_OLD_WIN
+  English = This program only supports Windows Vista and later
+  Japanese = このプログラムはWindows Vista以降のみをサポートします
+  Swedish = Detta program stödjer endast Windows Vista och senare versioner
+
+ERR_INVALID_PORT
+  English = Port needs to be a number between 1 and 29999. Ports 30000 and above are now reserved for port forwarding.
+  Japanese = ポート番号は1から655334の間で選んで下さい。
+  Swedish = Port-numret måste vara ett tal mellan 1 och 655334
+
+ERR_PORT_8443_RESERVED
+  English = Error: port 8443 is reserved
+  Japanese = エラー: ポート8443は予約されています
+  Swedish = Fel: Port 8443 är reserverad
+
+ERR_TUNNEL
+  English = Cannot start tunnel
+  Japanese = トンネルを開始できません
+  Swedish = Det gick inte att starta tunneln
+  
+ERR_TUNNEL_DIFFERENT_HOST
+  English = Tunnel host must be different from the selected VPN node
+  Japanese = トンネルホストは選択したVPNノードとは異なる必要があります
+  Swedish = Tunnelvärden måste vara en annan än den valda VPN-noden
+
+ERR_UPDATE_NODELIST
+  English = Error downloading list from https://cryptostorm.nu/nodelist4.txt
+  Japanese = https://cryptostorm.nu/nodelist4.txt からのダウンロード失敗
+  Swedish = Fel vid nedladdning av lista från https://cryptostorm.nu/nodelist4.txt
+
+ERR_VERIFY
+  English = File verification failed
+  Japanese = ファイルの認証に失敗しました
+  Swedish = Filverifiering misslyckades
+
+QUESTION_ANOTHERPROG1
+  English = Another program is attempting to close the cryptostorm client.
+  Japanese = 他のプログラムがcryptostormクライアントを終了させようとしています
+  Swedish = Ett annat program försöker stänga cryptostorm-klienten.
+
+QUESTION_ANOTHERPROG2
+  English = Do you want to allow this?
+  Japanese = 許可しますか？
+  Swedish = Vill du tillåta detta?
+
+QUESTION_ANOTHERPROG3
+  English = (If you are upgrading using setup.exe, choose "Yes" here)
+  Japanese = （setup.exeを実行してアップグレードするなら、ここに「はい」を選択して下さい）
+  Swedish = (Om du uppgraderar genom setup.exe, välj &quot;Ja&quot; här)
+
+QUESTION_DISCONNECT1
+  English = You are connected to Cryptostorm.
+  Japanese = Cryptostormに接続されました
+  Swedish = Du är ansluten till Cryptostorm.
+
+QUESTION_DISCONNECT2
+  English = If you disconnect you will no longer be secured.
+  Japanese = 切断すると通信は保護されなくなります
+  Swedish = Om du kopplar ner kommer du inte längre vara säker.
+
+QUESTION_DISCONNECT3
+  English = Are you sure you want to disconnect?
+  Japanese = 本当に切断しますか？
+  Swedish = Är du säker på att du vill koppla ner?
+
+QUESTION_KILLSWITCH1
+  English = The kill switch is still enabled.
+  Japanese = キルスウィッチはまだ有効しています
+  Swedish = Killswitchen är fortfarande aktiverad.
+
+QUESTION_KILLSWITCH2
+  English = Do you want to disable it?
+  Japanese = 無効にしてもよろしい？
+  Swedish = Vill du inaktivera detta?
+
+QUESTION_NEWVER1
+  English = There is a new version available.
+  Japanese = 新バージョンがあります
+  Swedish = Det finns en ny version tillgänglig.
+
+QUESTION_NEWVER2
+  English = Would you like to upgrade now?
+  Japanese = アップグレードしますか？
+  Swedish = Vill du uppgradera nu?
+
+QUESTION_ONLYONE1
+  English = Only one instance of this program can be ran at a time.
+  Japanese = このプログラムは一度に1つのインスタンスのみを実行できます。
+  Swedish = Endast en instans av detta program kan köras åt gången.
+
+QUESTION_ONLYONE2
+  English = Would you like to close the other instance?
+  Japanese = 他のインスタンスを閉じてもよろしい？
+  Swedish = Vill du avsluta den andra instansen?
+
+QUESTION_WINFIRE1
+  English = The Windows Firewall service is turned off, and this killswitch requires it to be on.
+  Japanese = キルスウィッチの操作がWindowsファイアウォールはオンに設定する必要ですが、今はオフです。
+  Swedish = Windows-brandväggen är avstängd, och killswitchen kräver att den är på.
+
+QUESTION_WINFIRE2
+  English = Would you like to turn on the Windows Firewall? Choosing No will disable the killswitch.
+  Japanese = Windowsファイアウォールをオンにしますか？オンにしないと、キルスウィッチは無効になります。
+  Swedish = Vill du aktivera Windows-brandväggen? Om du väljer Nej, stänger du av killswitchen.
+
+TXT_ADVANCED
+  English = Advanced
+  Japanese = 高度な
+  Swedish = Avancerade
+
+TXT_ADVANCED_OPTIONS
+  English = Advanced options
+  Japanese = 詳細オプション
+  Swedish = Avancerade alternativ
+
+TXT_AUTO_CONNECT
+  English = Automatically connect
+  Japanese = 自動的に接続
+  Swedish = Anslut automatiskt
+
+TXT_AUTO_START
+  English = Automatically start with Windows
+  Japanese = 起動時にクライアントを開始する
+  Swedish = Autostarta med Windows
+
+TXT_BACK
+  English = Back
+  Japanese = 戻る
+  Swedish = Tillbaka
+
+TXT_CHECKING_TOKEN
+  English = Checking token syntax
+  Japanese = トークン構文を確認中...
+  Swedish = Kontrollerar token syntax
+
+TXT_CONNECT
+  English = Connect
+  Japanese = 接続
+  Swedish = Anslut
+
+TXT_CONNECTED
+  English = Connected
+  Japanese = 接続されました
+  Swedish = Ansluten
+
+TXT_CONNECTING
+  English = Connecting
+  Japanese = 接続中
+  Swedish = Ansluter
+
+TXT_CONNECT_PORT
+  English = Connect to port
+  Japanese = 接続しているポート番号
+  Swedish = Ansluter till port
+
+TXT_CONNECT_PROTOCOL
+  English = Connect with protocol
+  Japanese = 接続するプロトコル
+  Swedish = Anslut med protokoll
+
+TXT_CONNECT_TIMEOUT
+  English = Connection timed out
+  Japanese = 接続がタイムアウトしました
+  Swedish = Anslutningen har nått sin tidsgräns
+
+TXT_COPY
+  English = Copy
+  Japanese = コピー
+  Swedish = Kopiera
+
+TXT_DEFAULT_SERVER
+  English = Global random
+  Japanese = グローバル・ランダム
+  Swedish = Global slumpad
+
+TXT_DISABLE_IPV6
+  English = Disable IPv6
+  Japanese = IPv6を無効にする
+  Swedish = Inaktivera IPv6
+
+TXT_DISABLING_IPV6
+  English = Disabling IPv6
+  Japanese = IPv6を無効にする
+  Swedish = Inaktiverar IPv6
+
+TXT_DISCONNECT
+  English = Disconnect
+  Japanese = 切断する
+  Swedish = Avbryt anslutning
+
+TXT_DISCONNECTED
+  English = Disconnected.
+  Japanese = 切断されました
+  Swedish = Ej ansluten.
+
+TXT_DISCONNECTING
+  English = Disconnecting
+  Japanese = 切断しています
+  Swedish = Kopplar från
+
+TXT_DNS_LEAK
+  English = Enable DNS leak prevention
+  Japanese = DNS漏れ防止を有効にする
+  Swedish = Aktivera DNS läckage skydd
+
+TXT_DNS_RESTORE
+  English = Restoring DNS
+  Japanese = DNSを戻します
+  Swedish = Återställer DNS
+
+TXT_DONE
+  English = Done.
+  Japanese = 完了しました
+  Swedish = Färdig.
+
+TXT_DOWNLOADED
+  English = Downloaded
+  Japanese = ダウンロードされました
+  Swedish = Laddade ner
+
+TXT_DOWNLOADING
+  English = Downloading
+  Japanese = ダウンロード中
+  Swedish = Laddar ner
+
+TXT_DOWNLOADING_LATEST
+  English = Downloading latest widget installer
+  Japanese = 最新のウィジェットインストーラーをダウンロード中
+  Swedish = Hämtar senaste widget-installatören
+
+TXT_DOWNLOAD_VERIFIED
+  English = Downloaded file verified correctly.
+  Japanese = ダウンロードされたファイルが正しく認証されました
+  Swedish = Nedladdad fil verifierad korrekt.
+
+TXT_ENABLE_ADBLOCK
+  English = Block intrusive ads/trackers
+  Japanese = 押し付けがましいオンライン広告やトラッカーをブロックする
+  Swedish = Blockera påträngande annonser/spårare
+
+TXT_DNSCRYPT_ENABLE
+  English = Enable DNSCrypt
+  Japanese = DNSCryptを有効にする
+  Swedish = Aktivera DNSCrypt
+
+TXT_DNSCRYPT_STARTING
+  English = Starting DNSCrypt service
+  Japanese = DNSCryptサービスを開始しています
+  Swedish = Startar DNSCrypt-tjänsten
+
+TXT_DNSCRYPT_STOPPING
+  English = Stopping DNSCrypt service
+  Japanese = DNSCryptサービスを停止しています
+  Swedish = Stoppar DNSCrypt-tjänst
+  
+TXT_DNSCRYPT_INSTALLING
+  English = Installing DNSCrypt service
+  Japanese = DNSCryptサービスのインストール
+  Swedish = Installerar tjänsten DNSCrypt
+
+TXT_DNSCRYPT_UNINSTALLING
+  English = Uninstalling DNSCrypt service
+  Japanese = DNSCryptサービスのアンインストール
+  Swedish = Avinstallerar DNSCrypt-tjänsten
+
+TXT_EXIT
+  English = Exit
+  Japanese = 終了
+  Swedish = Avsluta
+
+TXT_EXITING
+  English = Exiting
+  Japanese = 退出中
+  Swedish = Avslutar
+
+TXT_FAILED_TO_START
+  English = Failed to start
+  Japanese = 起動に失敗しました
+  Swedish = Misslyckades med att starta
+  
+TXT_HERE
+  English = here
+  Japanese = ここで
+  Swedish = här
+
+TXT_KILLSWITCH_ENABLE
+  English = Enable killswitch
+  Japanese = キルスイッチを有効にする
+  Swedish = Aktivera killswitch
+
+TXT_KILLSWITCH_EXPORTING_RULES
+  English = Kill switch - Exporting rules
+  Japanese = キルスイッチ - ルールのエクスポート中
+  Swedish = Kill switch - Exportera regler
+  
+TXT_KILLSWITCH_CLEARING_EXISTING_RULES
+  English = Kill switch - Clearing existing rules
+  Japanese = キルスイッチ - 既存のルールをクリアしています
+  Swedish = Kill switch - Rensa befintliga regler
+
+TXT_KILLSWITCH_BLOCKING_EVERYTHING
+  English = Kill switch - Blocking everything by default
+  Japanese = キルスイッチ - デフォルトですべてをブロックしています
+  Swedish = Kill switch - Blockera allt som standard
+
+TXT_KILLSWITCH_WHITELISTING_DHCP
+  English = Kill switch - Whitelisting DHCP
+  Japanese = キルスイッチ - DHCP をホワイトリストに登録しています
+  Swedish = Kill switch - Vitlista DHCP
+
+TXT_KILLSWITCH_ALLOWING_LAN
+  English = Kill switch - Allowing local network
+  Japanese = キルスイッチ - ローカルネットワークを許可しています
+  Swedish = Kill switch - Tillåta lokalt nätverk
+
+TXT_KILLSWITCH_WHITELISTING_PROGRAMS
+  English = Kill switch - Whitelisting programs
+  Japanese = キルスイッチ - プログラムをホワイトリストに登録しています
+  Swedish = Kill switch - Vitlista program
+
+TXT_KILLSWITCH_ALLOWING_PRECONNECT_DNS
+  English = Kill switch - Allowing pre-connection DNS
+  Japanese = キルスイッチ - 接続前 DNS を許可しています
+  Swedish = Kill switch - Tillåta DNS före anslutning
+
+TXT_KILLSWITCH_RESOLVING_ENDPOINTS
+  English = Kill switch - Resolving endpoints
+  Japanese = キルスイッチ - エンドポイントを解決しています
+  Swedish = Kill switch - Lösa slutpunkter
+
+TXT_KILLSWITCH_WHITELISTING_VPN_IPS
+  English = Kill switch - Whitelisting VPN IPs
+  Japanese = キルスイッチ - VPN IP をホワイトリストに登録しています
+  Swedish = Kill switch - Vitlista VPN-IP:er
+
+TXT_KILLSWITCH_WHITELISTING_STATIC_IPS
+  English = Kill switch - Whitelisting static IPs
+  Japanese = キルスイッチ - 静的 IP をホワイトリストに登録しています
+  Swedish = Kill switch - Vitlista statiska IP:er
+
+TXT_KILLSWITCH_ADDING_VPN_DNS_RULES
+  English = Kill switch - Adding VPN DNS rules
+  Japanese = キルスイッチ - VPN DNS ルールを追加しています
+  Swedish = Kill switch - Lägga till VPN DNS-regler
+
+TXT_KILLSWITCH_ADDING_INTERNAL_VPN_IP_RULES
+  English = Kill switch - Adding internal VPN IP rules
+  Japanese = キルスイッチ - 内部 VPN IP ルールを追加しています
+  Swedish = Kill switch - Lägga till interna VPN IP-regler
+
+TXT_KILLSWITCH_IMPORTED_PREVIOUS_RULES
+  English = Imported previous firewall rules
+  Japanese = 以前のファイアウォールルールをインポートしました
+  Swedish = Importerade tidigare brandväggsregler
+
+TXT_KILLSWITCH_IS_ENABLED_DISABLING
+  English = Kill switch is enabled, disabling...
+  Japanese = キルスイッチが有効です。無効にしています…
+  Swedish = Kill switch är aktiverad, inaktiverar...
+
+TXT_KILLSWITCH_RULES_DELETED
+  English = Kill switch firewall rules deleted
+  Japanese = キルスイッチのファイアウォールルールを削除しました
+  Swedish = Kill switch brandväggsregler raderade
+
+TXT_KILLSWITCH_FW_NOTIFICATIONS_ENABLED
+  English = Firewall notifications enabled
+  Japanese = ファイアウォール通知が有効です
+  Swedish = Brandväggsmeddelanden aktiverade
+
+TXT_KILLSWITCH_FW_PROFILE_POLICIES_RESTORED
+  English = Firewall profile policies restored
+  Japanese = ファイアウォールプロファイルポリシーを復元しました
+  Swedish = Brandväggsprofilpolicyer återställda
+
+TXT_LANGUAGE
+  English = Language
+  Japanese = 言語
+  Swedish = Språk
+
+TXT_LOGGING_IN
+  English = Logging into cryptostorm
+  Japanese = cryptostormにログインしています
+  Swedish = Loggar in på cryptostorm
+
+TXT_MAINWINDOW1
+  English = To connect to cryptostorm, provide an access token below.
+  Japanese = cryptostormに接続するために、下にアクセストークンを入力してください
+  Swedish = För att ansluta till cryptostorm, uppge ett åtkomst-token nedan.
+
+TXT_MAINWINDOW2
+  English = If you don't have one, you can get one
+  Japanese = アクセストークンを入手したい場合、
+  Swedish = Om du inte har ett, kan du få ett
+
+TXT_MAINWINDOW5
+  English = If you need to verify your token, go
+  Japanese = トークンを検証するには、
+  Swedish = Om du behöver verifiera ditt token, gå
+
+TXT_NO_SPLASH
+  English = Disable splash image on startup.
+  Japanese = スタートアップ時にスプラッシュスクリーンを無効にする
+  Swedish = Inaktivera splash bild vid start.
+
+TXT_NOT_CONNECTED
+  English = Not connected
+  Japanese = 接続されていません
+  Swedish = Ej ansluten
+
+TXT_OPTIONS
+  English = Options
+  Japanese = オプション
+  Swedish = Alternativ
+
+TXT_PASTE
+  English = Paste
+  Japanese = 貼り付け
+  Swedish = Klistra in
+
+TXT_RANDOM_PORT
+  English = Random port
+  Japanese = ランダムポート
+  Swedish = Slumpmässig port
+
+TXT_SAVE
+  English = Save?
+  Japanese = セーブしますか？
+  Swedish = Spara?
+
+TXT_SECURITY
+  English = Security
+  Japanese = セキュリティー
+  Swedish = Säkerhet
+
+TXT_SET_DNS_DNSCRYPT
+  English = Setting DNS to DNSCrypt
+  Japanese = DNS を DNSCrypt に設定しています
+  Swedish = Ställer in DNS till DNSCrypt
+
+TXT_SOCKS_NO_KILLSWITCH
+  English = The killswitch will be disabled since a SOCKS proxy is being used
+  Japanese = SOCKSプロキシが使用されているため、キルスイッチは無効になります
+  Swedish = Kill-switchen är inaktiverad eftersom en SOCKS-proxy används
+  
+TXT_STARTUP
+  English = Startup
+  Japanese = スタートアップ
+  Swedish = Uppstart
+
+TXT_SUSPENDING
+  English = System entering suspended state
+  Japanese = システムは中断状態に入ります
+  Swedish = Systemet går in i suspenderat tillstånd
+
+TXT_TIMEOUT
+  English = Timeout
+  Japanese = タイムアウト
+  Swedish = Avbrott
+
+TXT_TOOLTIP_TOKEN
+  English = Token format: xxxx-xxxx-xxxx-xxxx (including dashes)
+  Japanese = トークン書式: xxxx-xxxx-xxxx-xxxx（ハイフンを省略しないで下さい）
+  Swedish = Token format: xxxx-xxxx-xxxx-xxxx (inkludera bindestreck)
+
+TXT_UPDATE
+  English = Update
+  Japanese = アップデート
+  Swedish = Uppdatera
+
+TXT_UPDATE_CHECKING
+  English = Checking for updates
+  Japanese = アップデートをチェックしています
+  Swedish = Söker efter uppdateringar
+
+TXT_UPDATE_NODELIST
+  English = Updating node list
+  Japanese = ノードリストを更新中
+  Swedish = Uppdaterar nod-lista
+
+TXT_UPDATE_NODELIST_DONE
+  English = Node list update complete.
+  Japanese = ノードリスト更新完了
+  Swedish = Nod-listan uppdaterades.
+
+TXT_UPGRADING1
+  English = Now disconnect and exit this program.
+  Japanese = 切断してこのプログラムを終了して下さい。
+  Swedish = Koppla nu ner och avsluta det här programmet.
+
+TXT_UPGRADING2
+  English = When the widget closes, the installer for the latest version will start.
+  Japanese = ウィジェットが閉じると、最新バージョンへのアップグレードが起動します。
+  Swedish = När widgeten stängs, startar installationsprogrammet för den senaste versionen.
+
+TXT_WINTUN_CLEANUP
+  English = Cleaning up wintun adapter
+  Japanese = wintun アダプタのクリーンアップ
+  Swedish = Rengöring av Wintun-adaptern
+
+TXT_WINTUN_RESTORING_DEFAULTS
+  English = Restoring the adapter to its default settings
+  Japanese = アダプタをデフォルト設定に復元する
+  Swedish = Återställa adaptern till standardinställningarna
+
+TXT_WINTUN_STARTING
+  English = Starting Wintun adapter
+  Japanese = Wintunアダプタの起動
+  Swedish = Startar Wintun-adaptern
+  
+TXT_WINTUN_STOPPED
+  English = Wintun adapter stopped
+  Japanese = Wintunアダプタを停止しました
+  Swedish = Stoppad Wintun-adapter
+
+TXT_WINTUN_STOPPED_AND_UNINSTALLED
+  English = Wintun adapter stopped and uninstalled
+  Japanese = Wintunアダプタが停止しアンインストールされました
+  Swedish = Wintun-adaptern stoppades och avinstallerades
