@@ -1,0 +1,64 @@
+diff -uNr a/src/network.c b/src/network.c
+--- a/src/network.c	2026-06-12 20:31:12.333478117 +0000
++++ b/src/network.c	2026-06-12 20:31:12.333789613 +0000
+@@ -1052,6 +1052,52 @@
+ #ifdef INET_SOCKET_PAIR
+     struct sockaddr_in addr;
+     socklen_t addrlen;
++#ifdef USE_WIN32
++    /*
++     * The original Windows fallback used a TCP listener on 127.0.0.1
++     * and a blocking connect()/accept() pair.  Some Winsock/WFP/filter
++     * stacks can block that self-connect before stunnel has parsed
++     * command-line options or opened its normal logs.  For stunnel's
++     * internal signal/terminate pipes we only need a selectable socket
++     * that can carry a few one-byte wakeups, so a connected UDP socket
++     * pair is enough and avoids TCP's connect()/accept() path entirely.
++     */
++    fd[0]=s_socket(AF_INET, SOCK_DGRAM, 0, 0, "make_sockets: s_socket#1");
++    if(fd[0]==INVALID_SOCKET)
++        return 1;
++    fd[1]=s_socket(AF_INET, SOCK_DGRAM, 0, 0, "make_sockets: s_socket#2");
++    if(fd[1]==INVALID_SOCKET) {
++        closesocket(fd[0]);
++        return 1;
++    }
++
++    addrlen=sizeof addr;
++    memset(&addr, 0, sizeof addr);
++    addr.sin_family=AF_INET;
++    addr.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
++    addr.sin_port=htons(0); /* dynamic port allocation */
++
++    if(bind(fd[0], (struct sockaddr *)&addr, addrlen)) {
++        sockerror("make_sockets: bind#1");
++        closesocket(fd[0]);
++        closesocket(fd[1]);
++        return 1;
++    }
++    if(getsockname(fd[0], (struct sockaddr *)&addr, &addrlen)) {
++        sockerror("make_sockets: getsockname");
++        closesocket(fd[0]);
++        closesocket(fd[1]);
++        return 1;
++    }
++    if(connect(fd[1], (struct sockaddr *)&addr, addrlen)) {
++        sockerror("make_sockets: connect");
++        closesocket(fd[0]);
++        closesocket(fd[1]);
++        return 1;
++    }
++    set_nonblock(fd[0], 1);
++    set_nonblock(fd[1], 1);
++#else /* USE_WIN32 */
+     SOCKET s; /* temporary socket awaiting for connection */
+ 
+     /* create two *blocking* sockets first */
+@@ -1102,6 +1148,7 @@
+     closesocket(s); /* don't care about the result */
+     set_nonblock(fd[0], 1);
+     set_nonblock(fd[1], 1);
++#endif /* USE_WIN32 */
+ #else
+     if(s_socketpair(AF_UNIX, SOCK_STREAM, 0, fd, 1, "make_sockets: socketpair"))
+         return 1;

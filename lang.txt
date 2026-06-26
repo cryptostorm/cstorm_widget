@@ -7,7 +7,7 @@
 ;  Russian = Авторизация не удалась
 ;Then continue to do the same for all the remaining text strings. There must be two spaces before the language name.
 ;You can also use the native script for the language name, such as 'Русский' instead of 'Russian'.
-;New languages should be detected automatically, as long as every entry from ERR_AUTH_FAIL to TXT_WINTUN_STOPPED_AND_UNINSTALLED
+;New languages should be detected automatically, as long as every entry from ERR_AUTH_FAIL to TXT_WINTUN_CLEANUP
 ;has translations for the new language.
 
 ERR_AUTH_FAIL
@@ -15,741 +15,1782 @@ ERR_AUTH_FAIL
   Japanese = 認証失敗
   Swedish = Auktorisering misslyckades
   Italian = Autorizzazione fallita
+  Russian = Авторизация не удалась
+  Chinese = 授权失败
+  Persian = احراز هویت ناموفق بود
+  Arabic = فشل التفويض
+  German = Autorisierung fehlgeschlagen
+  French = Autorisation échouée
+  Dutch = Autorisatie mislukt
+  Finnish = Valtuutus epäonnistui
+  Spanish = Error de autorización
 
 ERR_AUTO_CONNECT
   English = Autoconnect disabled due to error. Re-enable it in Options.
   Japanese = エラーによって自動接続機能は無効になりました。 「オプション」からリセットして下さい。
   Swedish = Auto-anslutning inaktiverad på grund av ett fel. Aktivera det i alternativ.
   Italian = Connessione automatica disabilitata a causa di un errore. Riabilitala in Opzioni.
+  Russian = Автоподключение отключено из-за ошибки. Включите его снова в параметрах.
+  Chinese = 由于错误，自动连接已禁用。请在选项中重新启用。
+  Persian = اتصال خودکار به دلیل خطا غیرفعال شد. آن را دوباره در گزینه‌ها فعال کنید.
+  Arabic = تم تعطيل الاتصال التلقائي بسبب خطأ. أعد تمكينه من الخيارات.
+  German = Automatische Verbindung wegen eines Fehlers deaktiviert. Aktivieren Sie sie in den Optionen erneut.
+  French = Connexion automatique désactivée en raison d’une erreur. Réactivez-la dans les options.
+  Dutch = Automatisch verbinden is uitgeschakeld vanwege een fout. Schakel dit opnieuw in bij Opties.
+  Finnish = Automaattinen yhdistäminen poistettiin käytöstä virheen vuoksi. Ota se uudelleen käyttöön asetuksista.
+  Spanish = Conexión automática desactivada debido a un error. Vuelva a activarla en Opciones.
+
+ERR_TOKEN_EXPIRED
+  English = Your access token has expired
+  Japanese = アクセストークンの有効期限が切れています
+  Swedish = Din åtkomsttoken har gått ut
+  Italian = Il tuo token di accesso è scaduto
+  Russian = Срок действия вашего токена доступа истек
+  Chinese = 你的访问令牌已过期
+  Persian = توکن دسترسی شما منقضی شده است
+  Arabic = انتهت صلاحية رمز الوصول الخاص بك
+  German = Ihr Zugriffstoken ist abgelaufen
+  French = Votre jeton d’accès a expiré
+  Dutch = Uw toegangstoken is verlopen
+  Finnish = Käyttötunnuksesi on vanhentunut
+  Spanish = Su token de acceso ha caducado
+
+ERR_MAX_SESSIONS
+  English = Maximum sessions reached for that access token
+  Japanese = そのアクセストークンの最大セッション数に達しました
+  Swedish = Maximalt antal sessioner har nåtts för den åtkomsttoken
+  Italian = Numero massimo di sessioni raggiunto per quel token di accesso
+  Russian = Достигнуто максимальное число сеансов для этого токена доступа
+  Chinese = 该访问令牌已达到最大会话数
+  Persian = حداکثر تعداد نشست‌ها برای این توکن دسترسی رسیده است
+  Arabic = تم الوصول إلى الحد الأقصى للجلسات لرمز الوصول هذا
+  German = Maximale Sitzungsanzahl für dieses Zugriffstoken erreicht
+  French = Nombre maximal de sessions atteint pour ce jeton d’accès
+  Dutch = Maximumaantal sessies bereikt voor dit toegangstoken
+  Finnish = Tämän käyttötunnuksen enimmäisistuntomäärä on saavutettu
+  Spanish = Se ha alcanzado el número máximo de sesiones para ese token de acceso
 
 ERR_RESOLVE
   English = Cannot resolve hostname
   Japanese = ホスト名を解決できません
   Swedish = Kan inte lösa värdnamnet
   Italian = Impossibile risolvere il nome host
+  Russian = Не удается разрешить имя хоста
+  Chinese = 无法解析主机名
+  Persian = نام میزبان قابل حل نیست
+  Arabic = تعذر حل اسم المضيف
+  German = Hostname kann nicht aufgelöst werden
+  French = Impossible de résoudre le nom d’hôte
+  Dutch = Kan hostnaam niet oplossen
+  Finnish = Isäntänimeä ei voi selvittää
+  Spanish = No se puede resolver el nombre de host
 
 ERR_OPEN
   English = Can't open
   Japanese = 開くことができません
   Swedish = Kan inte öppna
   Italian = Impossibile aprire
+  Russian = Не удается открыть
+  Chinese = 无法打开
+  Persian = باز کردن ممکن نیست
+  Arabic = لا يمكن فتح
+  German = Kann nicht öffnen
+  French = Impossible d’ouvrir
+  Dutch = Kan niet openen
+  Finnish = Ei voi avata
+  Spanish = No se puede abrir
 
 ERR_WRITE
   English = Can't write to
   Japanese = ここに書き込むことができません
   Swedish = Kan inte skriva till
   Italian = Impossibile scrivere su
+  Russian = Не удается записать в
+  Chinese = 无法写入
+  Persian = نوشتن در این مسیر ممکن نیست
+  Arabic = لا يمكن الكتابة إلى
+  German = Kann nicht schreiben nach
+  French = Impossible d’écrire dans
+  Dutch = Kan niet schrijven naar
+  Finnish = Ei voi kirjoittaa kohteeseen
+  Spanish = No se puede escribir en
 
 ERR_CONNECT_GENERIC
   English = Connected with errors
   Japanese = 接続できましたが、エラーが発生しました
   Swedish = Ansluten med fel
   Italian = Connesso con errori
+  Russian = Подключено с ошибками
+  Chinese = 已连接但有错误
+  Persian = با خطا متصل شد
+  Arabic = تم الاتصال مع وجود أخطاء
+  German = Verbunden mit Fehlern
+  French = Connecté avec des erreurs
+  Dutch = Verbonden met fouten
+  Finnish = Yhdistetty virheiden kanssa
+  Spanish = Conectado con errores
 
 ERR_CREATE
   English = Cannot create file
   Japanese = ファイル作成できません
   Swedish = Kan inte skapa fil
   Italian = Impossibile creare il file
+  Russian = Не удается создать файл
+  Chinese = 无法创建文件
+  Persian = ایجاد فایل ممکن نیست
+  Arabic = لا يمكن إنشاء الملف
+  German = Datei kann nicht erstellt werden
+  French = Impossible de créer le fichier
+  Dutch = Kan bestand niet maken
+  Finnish = Tiedostoa ei voi luoda
+  Spanish = No se puede crear el archivo
 
 ERR_DOWNLOAD
   English = Could not download
   Japanese = ダウンロードできませんでした
   Swedish = Kunde inte ladda ner
   Italian = Impossibile effettuare il download
+  Russian = Не удалось скачать
+  Chinese = 无法下载
+  Persian = دانلود ممکن نبود
+  Arabic = تعذر التنزيل
+  German = Download fehlgeschlagen
+  French = Téléchargement impossible
+  Dutch = Kon niet downloaden
+  Finnish = Lataus epäonnistui
+  Spanish = No se pudo descargar
 
 ERR_NO_FREE_PORT
   English = Cannot find free port
   Japanese = 空いてるポートが見つかりませんでした
   Swedish = Kan inte hitta ledig port
   Italian = Impossibile trovare una porta libera
+  Russian = Не удается найти свободный порт
+  Chinese = 找不到空闲端口
+  Persian = پورت آزاد پیدا نشد
+  Arabic = تعذر العثور على منفذ متاح
+  German = Kein freier Port gefunden
+  French = Impossible de trouver un port libre
+  Dutch = Kan geen vrije poort vinden
+  Finnish = Vapaata porttia ei löydy
+  Spanish = No se puede encontrar un puerto libre
+
+ERR_MISSING_SSH_EXE
+  English = Missing SSH tunnel executable
+  Japanese = SSHトンネルの実行ファイルが見つかりません
+  Swedish = SSH-tunnelprogram saknas
+  Italian = Eseguibile del tunnel SSH mancante
+  Russian = Не найден файл запуска SSH-туннеля
+  Chinese = 缺少 SSH 隧道程序
+  Persian = فایل اجرایی تونل SSH پیدا نشد
+  Arabic = ملف تشغيل نفق SSH مفقود
+  German = SSH-Tunnel-Programm fehlt
+  French = Exécutable du tunnel SSH manquant
+  Dutch = Uitvoerbaar bestand voor SSH-tunnel ontbreekt
+  Finnish = SSH-tunnelin suoritustiedosto puuttuu
+  Spanish = Falta el ejecutable del túnel SSH
+
+ERR_MISSING_SSH_TARGET
+  English = Missing SSH tunnel target
+  Japanese = SSHトンネルの接続先が見つかりません
+  Swedish = SSH-tunnelmål saknas
+  Italian = Destinazione del tunnel SSH mancante
+  Russian = Не указан узел SSH-туннеля
+  Chinese = 缺少 SSH 隧道目标
+  Persian = مقصد تونل SSH مشخص نیست
+  Arabic = هدف نفق SSH مفقود
+  German = SSH-Tunnel-Ziel fehlt
+  French = Cible du tunnel SSH manquante
+  Dutch = Doel voor SSH-tunnel ontbreekt
+  Finnish = SSH-tunnelin kohde puuttuu
+  Spanish = Falta el destino del túnel SSH
 
 ERR_INVALID_SOCKS_IP
   English = Invalid IP specified for SOCKS proxy
   Japanese = SOCKSプロキシに無効なIPが指定されました
   Swedish = Ogiltig IP angiven för SOCKS-proxy
   Italian = Specificato un indirizzo IP non valido per il proxy SOCKS
+  Russian = Указан недопустимый IP для SOCKS-прокси
+  Chinese = 为 SOCKS 代理指定的 IP 无效
+  Persian = IP نامعتبر برای پروکسی SOCKS مشخص شده است
+  Arabic = تم تحديد عنوان IP غير صالح لوكيل SOCKS
+  German = Ungültige IP für SOCKS-Proxy angegeben
+  French = Adresse IP non valide indiquée pour le proxy SOCKS
+  Dutch = Ongeldig IP-adres opgegeven voor SOCKS-proxy
+  Finnish = SOCKS-välityspalvelimelle annettu IP-osoite ei kelpaa
+  Spanish = IP no válida especificada para el proxy SOCKS
 
 ERR_INVALID_SOCKS_PORT
   English = Invalid SOCKS port
   Japanese = 無効なSOCKSポート
   Swedish = Ogiltig SOCKS-port
   Italian = Porta SOCKS non valida
+  Russian = Недопустимый порт SOCKS
+  Chinese = SOCKS 端口无效
+  Persian = پورت SOCKS نامعتبر است
+  Arabic = منفذ SOCKS غير صالح
+  German = Ungültiger SOCKS-Port
+  French = Port SOCKS non valide
+  Dutch = Ongeldige SOCKS-poort
+  Finnish = Virheellinen SOCKS-portti
+  Spanish = Puerto SOCKS no válido
 
 ERR_INVALID_TOKEN1
   English = Token does not appear to be valid
   Japanese = このトークンは有効ではないように見えます
   Swedish = Token verkar inte vara giltigt
   Italian = Il Token non sembra essere valido
+  Russian = Токен не выглядит действительным
+  Chinese = 令牌看起来无效
+  Persian = به نظر می‌رسد توکن معتبر نیست
+  Arabic = يبدو أن الرمز غير صالح
+  German = Token scheint nicht gültig zu sein
+  French = Le jeton ne semble pas être valide
+  Dutch = Token lijkt niet geldig te zijn
+  Finnish = Tunnus ei vaikuta kelvolliselta
+  Spanish = El token no parece ser válido
 
 ERR_INVALID_TOKEN2
   English = (Note that tokens include the dashes)
   Japanese = （ハイフンを省略しないようにご注意ください）
   Swedish = (Observera att tokens inkluderar bindestrecken)
   Italian = (Notare che i tokens includono i trattini, i.e.: -)
+  Russian = (Обратите внимание, что токены включают дефисы)
+  Chinese = （请注意，令牌包含连字符）
+  Persian = (توجه کنید که توکن‌ها شامل خط تیره هستند)
+  Arabic = (لاحظ أن الرموز تتضمن الشرطات)
+  German = (Beachten Sie, dass Tokens die Bindestriche enthalten)
+  French = (Notez que les jetons incluent les tirets)
+  Dutch = (Let op: tokens bevatten ook de streepjes)
+  Finnish = (Huomaa, että tunnukset sisältävät myös väliviivat)
+  Spanish = (Tenga en cuenta que los tokens incluyen los guiones)
 
 ERR_KILLSWITCH_EXPORT
   English = Failed to export rules:
   Japanese = ルールのエクスポートに失敗しました:
   Swedish = Misslyckades med att exportera regler:
   Italian = Impossibile esportare le regole:
+  Russian = Не удалось экспортировать правила:
+  Chinese = 无法导出规则：
+  Persian = صدور قوانین ناموفق بود:
+  Arabic = فشل تصدير القواعد:
+  German = Regeln konnten nicht exportiert werden:
+  French = Échec de l’exportation des règles :
+  Dutch = Regels exporteren mislukt:
+  Finnish = Sääntöjen vienti epäonnistui:
+  Spanish = Error al exportar las reglas:
 
 ERR_KILLSWITCH_FW_TOGGLE
   English = Failed to toggle firewall rule
   Japanese = ファイアウォールルールの切り替えに失敗しました
   Swedish = Misslyckades med att aktivera och växla brandväggsregel
   Italian = Impossibile attivare/disattivare la regola firewall
+  Russian = Не удалось переключить правило брандмауэра
+  Chinese = 无法切换防火墙规则
+  Persian = تغییر وضعیت قانون فایروال ناموفق بود
+  Arabic = فشل تبديل قاعدة جدار الحماية
+  German = Firewallregel konnte nicht umgeschaltet werden
+  French = Échec de l’activation ou désactivation de la règle de pare-feu
+  Dutch = Firewallregel schakelen mislukt
+  Finnish = Palomuurisäännön vaihtaminen epäonnistui
+  Spanish = Error al cambiar el estado de la regla del cortafuegos
 
 ERR_KILLSWITCH_FW_ADD
   English = Failed to add firewall rule
   Japanese = ファイアウォールルールの追加に失敗しました
   Swedish = Misslyckades med att lägga till brandväggsregel
   Italian = Impossibile aggiungere la regola firewall
+  Russian = Не удалось добавить правило брандмауэра
+  Chinese = 无法添加防火墙规则
+  Persian = افزودن قانون فایروال ناموفق بود
+  Arabic = فشل إضافة قاعدة جدار الحماية
+  German = Firewallregel konnte nicht hinzugefügt werden
+  French = Échec de l’ajout de la règle de pare-feu
+  Dutch = Firewallregel toevoegen mislukt
+  Finnish = Palomuurisäännön lisääminen epäonnistui
+  Spanish = Error al añadir la regla del cortafuegos
 
 ERR_KILLSWITCH_FW_DEL
   English = Failed to delete firewall rule
   Japanese = ファイアウォールルールの削除に失敗しました
   Swedish = Misslyckades med att ta bort brandväggsregel
   Italian = Impossibile rimuovere la regola firewall
+  Russian = Не удалось удалить правило брандмауэра
+  Chinese = 无法删除防火墙规则
+  Persian = حذف قانون فایروال ناموفق بود
+  Arabic = فشل حذف قاعدة جدار الحماية
+  German = Firewallregel konnte nicht gelöscht werden
+  French = Échec de la suppression de la règle de pare-feu
+  Dutch = Firewallregel verwijderen mislukt
+  Finnish = Palomuurisäännön poistaminen epäonnistui
+  Spanish = Error al eliminar la regla del cortafuegos
 
 ERR_MENU
   English = Creating Menu failed
   Japanese = メニュー初期化失敗
   Swedish = Skapa meny misslyckades
   Italian = Impossibile creare il menù
+  Russian = Не удалось создать меню
+  Chinese = 创建菜单失败
+  Persian = ایجاد منو ناموفق بود
+  Arabic = فشل إنشاء القائمة
+  German = Menü konnte nicht erstellt werden
+  French = Échec de la création du menu
+  Dutch = Menu maken mislukt
+  Finnish = Valikon luonti epäonnistui
+  Spanish = Error al crear el menú
 
 ERR_NEED_ADMIN
   English = This program requires Administrator privileges
   Japanese = このプログラムは管理者特権が必要です
   Swedish = Det här programmet kräver administratörsbehörighet
   Italian = Questo programma richiede privilegi di amministratore
+  Russian = Эта программа требует прав администратора
+  Chinese = 此程序需要管理员权限
+  Persian = این برنامه به دسترسی مدیر نیاز دارد
+  Arabic = يتطلب هذا البرنامج صلاحيات المسؤول
+  German = Dieses Programm benötigt Administratorrechte
+  French = Ce programme nécessite des droits d’administrateur
+  Dutch = Dit programma vereist administratorrechten
+  Finnish = Tämä ohjelma vaatii järjestelmänvalvojan oikeudet
+  Spanish = Este programa requiere privilegios de administrador
 
 ERR_NO_TOKEN
   English = You didn't enter a token
   Japanese = トークンは入力されていません
   Swedish = Du skrev inte in ett token
   Italian = Non hai inserito un token
+  Russian = Вы не ввели токен
+  Chinese = 你没有输入令牌
+  Persian = توکن را وارد نکرده‌اید
+  Arabic = لم تدخل رمزًا
+  German = Sie haben kein Token eingegeben
+  French = Vous n’avez pas saisi de jeton
+  Dutch = U hebt geen token ingevoerd
+  Finnish = Et syöttänyt tunnusta
+  Spanish = No ha introducido un token
 
 ERR_OLD_WIN
   English = This program only supports Windows Vista and later
   Japanese = このプログラムはWindows Vista以降のみをサポートします
   Swedish = Detta program stödjer endast Windows Vista och senare versioner
   Italian = Questo programma supporta solo Windows Vista o successivi
+  Russian = Эта программа поддерживает только Windows Vista и новее
+  Chinese = 此程序仅支持 Windows Vista 及更高版本
+  Persian = این برنامه فقط از Windows Vista و نسخه‌های جدیدتر پشتیبانی می‌کند
+  Arabic = يدعم هذا البرنامج Windows Vista والإصدارات الأحدث فقط
+  German = Dieses Programm unterstützt nur Windows Vista und neuer
+  French = Ce programme ne prend en charge que Windows Vista et les versions ultérieures
+  Dutch = Dit programma ondersteunt alleen Windows Vista en nieuwer
+  Finnish = Tämä ohjelma tukee vain Windows Vistaa ja uudempia versioita
+  Spanish = Este programa solo es compatible con Windows Vista y versiones posteriores
 
 ERR_INVALID_PORT
   English = Port needs to be a number between 1 and 29999. Ports 30000 and above are now reserved for port forwarding.
   Japanese = ポート番号は1から65534の間で選んで下さい。
   Swedish = Port-numret måste vara ett tal mellan 1 och 65534
   Italian = La porta dev'essere un numero compreso tra 1 e 29999. Le porte dalla 30000 in poi sono attualmente riservate al port forwarding.
+  Russian = Порт должен быть числом от 1 до 29999. Порты 30000 и выше теперь зарезервированы для перенаправления портов.
+  Chinese = 端口必须是 1 到 29999 之间的数字。30000 及以上端口现在保留用于端口转发。
+  Persian = پورت باید عددی بین 1 تا 29999 باشد. پورت‌های 30000 و بالاتر اکنون برای انتقال پورت رزرو شده‌اند.
+  Arabic = يجب أن يكون المنفذ رقمًا بين 1 و29999. المنافذ 30000 وما فوق محجوزة الآن لإعادة توجيه المنافذ.
+  German = Der Port muss eine Zahl zwischen 1 und 29999 sein. Ports ab 30000 sind jetzt für Portweiterleitung reserviert.
+  French = Le port doit être un nombre compris entre 1 et 29999. Les ports 30000 et supérieurs sont désormais réservés au transfert de port.
+  Dutch = De poort moet een getal tussen 1 en 29999 zijn. Poorten 30000 en hoger zijn nu gereserveerd voor port forwarding.
+  Finnish = Portin on oltava numero väliltä 1–29999. Portit 30000 ja sitä suuremmat on nyt varattu portinohjaukselle.
+  Spanish = El puerto debe ser un número entre 1 y 29999. Los puertos 30000 y superiores están reservados para el reenvío de puertos.
 
 ERR_PORT_8443_RESERVED
-  English = Error: port 8443 is reserved
-  Japanese = エラー: ポート8443は予約されています
-  Swedish = Fel: Port 8443 är reserverad
-  Italian = Errore: porta 8443 riservata
+  English = Error: port 8443 is reserved for Xray
+  Japanese = エラー: ポート8443はXray用に予約されています
+  Swedish = Fel: Port 8443 är reserverad för Xray
+  Italian = Errore: porta 8443 riservata per Xray
+  Russian = Ошибка: порт 8443 зарезервирован для Xray
+  Chinese = 错误：端口 8443 保留给 Xray
+  Persian = خطا: پورت 8443 برای Xray رزرو شده است
+  Arabic = خطأ: المنفذ 8443 محجوز لـ Xray
+  German = Fehler: Port 8443 ist für Xray reserviert
+  French = Erreur : le port 8443 est réservé à Xray
+  Dutch = Fout: poort 8443 is gereserveerd voor Xray
+  Finnish = Virhe: portti 8443 on varattu Xraylle
+  Spanish = Error: el puerto 8443 está reservado para Xray
 
 ERR_TUNNEL
   English = Cannot start tunnel
   Japanese = トンネルを開始できません
   Swedish = Det gick inte att starta tunneln
   Italian = Impossibile avviare il tunnel
+  Russian = Не удается запустить туннель
+  Chinese = 无法启动隧道
+  Persian = شروع تونل ممکن نیست
+  Arabic = لا يمكن بدء النفق
+  German = Tunnel kann nicht gestartet werden
+  French = Impossible de démarrer le tunnel
+  Dutch = Kan tunnel niet starten
+  Finnish = Tunnelia ei voi käynnistää
+  Spanish = No se puede iniciar el túnel
 
 ERR_TUNNEL_DIFFERENT_HOST
   English = Tunnel host must be different from the selected VPN node
   Japanese = トンネルホストは選択したVPNノードとは異なる必要があります
   Swedish = Tunnelvärden måste vara en annan än den valda VPN-noden
   Italian = L'host del tunnel deve essere diverso dal nodo VPN selezionato
-
-ERR_UPDATE_NODELIST
-  English = Error downloading list from https://cryptostorm.nu/nodelist4.txt
-  Japanese = https://cryptostorm.nu/nodelist4.txt からのダウンロード失敗
-  Swedish = Fel vid nedladdning av lista från https://cryptostorm.nu/nodelist4.txt
-  Italian = Errore durante il download della lista da https://cryptostorm.nu/nodelist4.txt
+  Russian = Хост туннеля должен отличаться от выбранного VPN-узла
+  Chinese = 隧道主机必须不同于所选 VPN 节点
+  Persian = میزبان تونل باید با گره VPN انتخاب‌شده متفاوت باشد
+  Arabic = يجب أن يكون مضيف النفق مختلفًا عن عقدة VPN المحددة
+  German = Der Tunnel-Host muss sich vom ausgewählten VPN-Knoten unterscheiden
+  French = L’hôte du tunnel doit être différent du nœud VPN sélectionné
+  Dutch = De tunnelhost moet verschillen van de geselecteerde VPN-node
+  Finnish = Tunnelin isännän on oltava eri kuin valittu VPN-solmu
+  Spanish = El host del túnel debe ser distinto del nodo VPN seleccionado
 
 ERR_VERIFY
   English = File verification failed
   Japanese = ファイルの認証に失敗しました
   Swedish = Filverifiering misslyckades
   Italian = Verifica del file fallita
+  Russian = Проверка файла не удалась
+  Chinese = 文件验证失败
+  Persian = تأیید فایل ناموفق بود
+  Arabic = فشل التحقق من الملف
+  German = Dateiprüfung fehlgeschlagen
+  French = Échec de la vérification du fichier
+  Dutch = Bestandsverificatie mislukt
+  Finnish = Tiedoston vahvistus epäonnistui
+  Spanish = Error al verificar el archivo
 
 QUESTION_ANOTHERPROG1
   English = Another program is attempting to close the cryptostorm client.
   Japanese = 他のプログラムがcryptostormクライアントを終了させようとしています
   Swedish = Ett annat program försöker stänga cryptostorm-klienten.
   Italian = Un altro programma sta tentando di chiudere il client cryptostorm.
+  Russian = Другая программа пытается закрыть клиент cryptostorm.
+  Chinese = 另一个程序正在尝试关闭 cryptostorm 客户端。
+  Persian = برنامه دیگری در تلاش است کلاینت cryptostorm را ببندد.
+  Arabic = يحاول برنامج آخر إغلاق عميل cryptostorm.
+  German = Ein anderes Programm versucht, den cryptostorm-Client zu schließen.
+  French = Un autre programme tente de fermer le client cryptostorm.
+  Dutch = Een ander programma probeert de cryptostorm-client te sluiten.
+  Finnish = Toinen ohjelma yrittää sulkea cryptostorm-asiakasohjelman.
+  Spanish = Otro programa está intentando cerrar el cliente de cryptostorm.
 
 QUESTION_ANOTHERPROG2
   English = Do you want to allow this?
   Japanese = 許可しますか？
   Swedish = Vill du tillåta detta?
   Italian = Vuoi consentirlo?
+  Russian = Разрешить это?
+  Chinese = 是否允许？
+  Persian = آیا اجازه می‌دهید؟
+  Arabic = هل تريد السماح بذلك؟
+  German = Möchten Sie dies erlauben?
+  French = Voulez-vous l’autoriser ?
+  Dutch = Wilt u dit toestaan?
+  Finnish = Haluatko sallia tämän?
+  Spanish = ¿Desea permitirlo?
 
 QUESTION_ANOTHERPROG3
   English = (If you are upgrading using setup.exe, choose "Yes" here)
   Japanese = （setup.exeを実行してアップグレードするなら、ここに「はい」を選択して下さい）
   Swedish = (Om du uppgraderar genom setup.exe, välj &quot;Ja&quot; här)
   Italian = (Se stai aggiornando utilizzando setup.exe, scegli "Sì" qui)
+  Russian = (Если вы обновляетесь с помощью setup.exe, выберите здесь "Да")
+  Chinese = （如果你正在使用 setup.exe 升级，请在此选择“是”）
+  Persian = (اگر با setup.exe ارتقا می‌دهید، اینجا «بله» را انتخاب کنید)
+  Arabic = (إذا كنت تقوم بالترقية باستخدام setup.exe، اختر "نعم" هنا)
+  German = (Wenn Sie mit setup.exe aktualisieren, wählen Sie hier „Ja“)
+  French = (Si vous effectuez la mise à niveau avec setup.exe, choisissez « Oui » ici)
+  Dutch = (Als u een upgrade uitvoert met setup.exe, kiest u hier “Ja”)
+  Finnish = (Jos päivität setup.exe-ohjelmalla, valitse tässä “Kyllä”)
+  Spanish = (Si está actualizando con setup.exe, elija “Sí” aquí)
 
 QUESTION_DISCONNECT1
   English = You are connected to Cryptostorm.
   Japanese = Cryptostormに接続されました
   Swedish = Du är ansluten till Cryptostorm.
   Italian = Sei connesso a Cryptostorm.
+  Russian = Вы подключены к Cryptostorm.
+  Chinese = 你已连接到 Cryptostorm。
+  Persian = شما به Cryptostorm متصل هستید.
+  Arabic = أنت متصل بـ Cryptostorm.
+  German = Sie sind mit Cryptostorm verbunden.
+  French = Vous êtes connecté à Cryptostorm.
+  Dutch = U bent verbonden met Cryptostorm.
+  Finnish = Olet yhteydessä Cryptostormiin.
+  Spanish = Está conectado a Cryptostorm.
 
 QUESTION_DISCONNECT2
   English = If you disconnect you will no longer be secured.
   Japanese = 切断すると通信は保護されなくなります
   Swedish = Om du kopplar ner kommer du inte längre vara säker.
   Italian = Se ti disconnetti non sarai più protetto.
+  Russian = Если вы отключитесь, защита больше не будет действовать.
+  Chinese = 如果断开连接，你将不再受到保护。
+  Persian = اگر قطع اتصال کنید، دیگر محافظت نخواهید شد.
+  Arabic = إذا قطعت الاتصال فلن تكون محميًا بعد الآن.
+  German = Wenn Sie die Verbindung trennen, sind Sie nicht mehr geschützt.
+  French = Si vous vous déconnectez, vous ne serez plus protégé.
+  Dutch = Als u de verbinding verbreekt, bent u niet langer beschermd.
+  Finnish = Jos katkaiset yhteyden, et ole enää suojattu.
+  Spanish = Si desconecta, dejará de estar protegido.
 
 QUESTION_DISCONNECT3
   English = Are you sure you want to disconnect?
   Japanese = 本当に切断しますか？
   Swedish = Är du säker på att du vill koppla ner?
   Italian = Sei sicuro di volerti disconnettere?
+  Russian = Вы уверены, что хотите отключиться?
+  Chinese = 确定要断开连接吗？
+  Persian = آیا مطمئن هستید که می‌خواهید قطع اتصال کنید؟
+  Arabic = هل أنت متأكد أنك تريد قطع الاتصال؟
+  German = Möchten Sie die Verbindung wirklich trennen?
+  French = Voulez-vous vraiment vous déconnecter ?
+  Dutch = Weet u zeker dat u de verbinding wilt verbreken?
+  Finnish = Haluatko varmasti katkaista yhteyden?
+  Spanish = ¿Seguro que desea desconectar?
 
 QUESTION_KILLSWITCH1
   English = The kill switch is still enabled.
   Japanese = キルスウィッチはまだ有効しています
   Swedish = Killswitchen är fortfarande aktiverad.
   Italian = Il kill switch è ancora attivo.
+  Russian = Kill switch все еще включен.
+  Chinese = Kill switch 仍处于启用状态。
+  Persian = کلید قطع اضطراری هنوز فعال است.
+  Arabic = لا يزال مفتاح القفل مفعّلًا.
+  German = Der Kill Switch ist noch aktiviert.
+  French = Le killswitch est toujours activé.
+  Dutch = De killswitch is nog ingeschakeld.
+  Finnish = Kill switch on edelleen käytössä.
+  Spanish = El killswitch sigue activado.
 
 QUESTION_KILLSWITCH2
   English = Do you want to disable it?
   Japanese = 無効にしてもよろしい？
   Swedish = Vill du inaktivera detta?
   Italian = Vuoi disabilitarlo?
+  Russian = Хотите отключить его?
+  Chinese = 是否要禁用它？
+  Persian = آیا می‌خواهید آن را غیرفعال کنید؟
+  Arabic = هل تريد تعطيله؟
+  German = Möchten Sie ihn deaktivieren?
+  French = Voulez-vous le désactiver ?
+  Dutch = Wilt u deze uitschakelen?
+  Finnish = Haluatko poistaa sen käytöstä?
+  Spanish = ¿Desea desactivarlo?
 
 QUESTION_NEWVER1
   English = There is a new version available.
   Japanese = 新バージョンがあります
   Swedish = Det finns en ny version tillgänglig.
   Italian = È disponibile una nuova versione.
+  Russian = Доступна новая версия.
+  Chinese = 有新版本可用。
+  Persian = نسخه جدیدی در دسترس است.
+  Arabic = يتوفر إصدار جديد.
+  German = Eine neue Version ist verfügbar.
+  French = Une nouvelle version est disponible.
+  Dutch = Er is een nieuwe versie beschikbaar.
+  Finnish = Uusi versio on saatavilla.
+  Spanish = Hay una nueva versión disponible.
 
 QUESTION_NEWVER2
   English = Would you like to upgrade now?
   Japanese = アップグレードしますか？
   Swedish = Vill du uppgradera nu?
   Italian = Vuoi aggiornare ora?
+  Russian = Хотите обновиться сейчас?
+  Chinese = 是否现在升级？
+  Persian = آیا می‌خواهید اکنون ارتقا دهید؟
+  Arabic = هل تريد الترقية الآن؟
+  German = Möchten Sie jetzt aktualisieren?
+  French = Voulez-vous effectuer la mise à niveau maintenant ?
+  Dutch = Wilt u nu upgraden?
+  Finnish = Haluatko päivittää nyt?
+  Spanish = ¿Desea actualizar ahora?
 
 QUESTION_ONLYONE1
   English = Only one instance of this program can be ran at a time.
   Japanese = このプログラムは一度に1つのインスタンスのみを実行できます。
   Swedish = Endast en instans av detta program kan köras åt gången.
   Italian = È possibile eseguire solo un'istanza di questo programma alla volta.
+  Russian = Одновременно можно запускать только один экземпляр этой программы.
+  Chinese = 此程序一次只能运行一个实例。
+  Persian = فقط یک نمونه از این برنامه می‌تواند همزمان اجرا شود.
+  Arabic = يمكن تشغيل نسخة واحدة فقط من هذا البرنامج في كل مرة.
+  German = Es kann jeweils nur eine Instanz dieses Programms ausgeführt werden.
+  French = Une seule instance de ce programme peut être exécutée à la fois.
+  Dutch = Er kan maar één exemplaar van dit programma tegelijk worden uitgevoerd.
+  Finnish = Tästä ohjelmasta voi olla käynnissä vain yksi ilmentymä kerrallaan.
+  Spanish = Solo se puede ejecutar una instancia de este programa a la vez.
 
 QUESTION_ONLYONE2
   English = Would you like to close the other instance?
   Japanese = 他のインスタンスを閉じてもよろしい？
   Swedish = Vill du avsluta den andra instansen?
   Italian = Vuoi chiudere l'altra istanza?
+  Russian = Хотите закрыть другой экземпляр?
+  Chinese = 是否要关闭另一个实例？
+  Persian = آیا می‌خواهید نمونه دیگر را ببندید؟
+  Arabic = هل تريد إغلاق النسخة الأخرى؟
+  German = Möchten Sie die andere Instanz schließen?
+  French = Voulez-vous fermer l’autre instance ?
+  Dutch = Wilt u het andere exemplaar sluiten?
+  Finnish = Haluatko sulkea toisen ilmentymän?
+  Spanish = ¿Desea cerrar la otra instancia?
 
 QUESTION_WINFIRE1
   English = The Windows Firewall service is turned off, and this killswitch requires it to be on.
   Japanese = キルスウィッチの操作がWindowsファイアウォールはオンに設定する必要ですが、今はオフです。
   Swedish = Windows-brandväggen är avstängd, och killswitchen kräver att den är på.
   Italian = Il servizio di Windows Firewall è disattivato, e questo kill switch richiede che sia attivo.
+  Russian = Служба брандмауэра Windows выключена, а для этого killswitch она должна быть включена.
+  Chinese = Windows 防火墙服务已关闭，而此 killswitch 需要它处于开启状态。
+  Persian = سرویس فایروال Windows خاموش است و این killswitch به روشن بودن آن نیاز دارد.
+  Arabic = خدمة جدار حماية Windows متوقفة، ويتطلب مفتاح القفل هذا تشغيلها.
+  German = Der Windows-Firewalldienst ist deaktiviert, und dieser Killswitch benötigt ihn.
+  French = Le service Pare-feu Windows est désactivé, et ce killswitch nécessite qu’il soit activé.
+  Dutch = De Windows Firewall-service is uitgeschakeld en deze killswitch vereist dat deze is ingeschakeld.
+  Finnish = Windowsin palomuuripalvelu on pois päältä, ja tämä kill switch vaatii sen olevan käytössä.
+  Spanish = El servicio Firewall de Windows está desactivado y este killswitch necesita que esté activado.
 
 QUESTION_WINFIRE2
   English = Would you like to turn on the Windows Firewall? Choosing "No" will disable the killswitch.
   Japanese = Windowsファイアウォールをオンにしますか？オンにしないと、キルスウィッチは無効になります。
   Swedish = Vill du aktivera Windows-brandväggen? Om du väljer "Nej", stänger du av killswitchen.
   Italian = Vuoi attivare Windows Firewall? Scegliendo "No", il killswitch verrà disabilitato.
+  Russian = Хотите включить брандмауэр Windows? Выбор "Нет" отключит killswitch.
+  Chinese = 是否要开启 Windows 防火墙？选择“否”将禁用 killswitch。
+  Persian = آیا می‌خواهید فایروال Windows را روشن کنید؟ انتخاب «خیر» killswitch را غیرفعال می‌کند.
+  Arabic = هل تريد تشغيل جدار حماية Windows؟ اختيار "لا" سيعطل مفتاح القفل.
+  German = Möchten Sie die Windows-Firewall aktivieren? Wenn Sie „Nein“ wählen, wird der Killswitch deaktiviert.
+  French = Voulez-vous activer le Pare-feu Windows ? Choisir « Non » désactivera le killswitch.
+  Dutch = Wilt u Windows Firewall inschakelen? Als u “Nee” kiest, wordt de killswitch uitgeschakeld.
+  Finnish = Haluatko ottaa Windowsin palomuurin käyttöön? Valinta “Ei” poistaa kill switchin käytöstä.
+  Spanish = ¿Desea activar Firewall de Windows? Si elige “No”, se desactivará el killswitch.
+
+TXT_ABORT
+  English = Abort
+  Japanese = アボート
+  Swedish = Abortera
+  Italian = Interrompi
+  Russian = Отмена
+  Chinese = 中止
+  Persian = لغو
+  Arabic = إلغاء
+  German = Abbrechen
+  French = Annuler
+  Dutch = Afbreken
+  Finnish = Keskeytä
+  Spanish = Cancelar
 
 TXT_ADVANCED
   English = Advanced
   Japanese = 高度な
   Swedish = Avancerade
   Italian = Avanzate
+  Russian = Дополнительно
+  Chinese = 高级
+  Persian = پیشرفته
+  Arabic = متقدم
+  German = Erweitert
+  French = Avancé
+  Dutch = Geavanceerd
+  Finnish = Lisäasetukset
+  Spanish = Avanzado
 
 TXT_ADVANCED_OPTIONS
   English = Advanced options
   Japanese = 詳細オプション
   Swedish = Avancerade alternativ
   Italian = Opzioni avanzate
+  Russian = Доп. параметры
+  Chinese = 高级选项
+  Persian = گزینه‌های پیشرفته
+  Arabic = خيارات متقدمة
+  German = Erweiterte Optionen
+  French = Options avancées
+  Dutch = Geavanceerde opties
+  Finnish = Lisäasetukset
+  Spanish = Opciones avanzadas
 
 TXT_AUTO_CONNECT
   English = Automatically connect
   Japanese = 自動的に接続
   Swedish = Anslut automatiskt
   Italian = Connetti automaticamente
+  Russian = Подключаться автоматически
+  Chinese = 自动连接
+  Persian = اتصال خودکار
+  Arabic = الاتصال تلقائيًا
+  German = Automatisch verbinden
+  French = Connexion automatique
+  Dutch = Automatisch verbinden
+  Finnish = Yhdistä automaattisesti
+  Spanish = Conectar automáticamente
 
 TXT_AUTO_START
   English = Automatically start with Windows
   Japanese = 起動時にクライアントを開始する
   Swedish = Autostarta med Windows
   Italian = Avvia automaticamente con Windows
+  Russian = Автоматически запускать вместе с Windows
+  Chinese = 随 Windows 自动启动
+  Persian = شروع خودکار با Windows
+  Arabic = البدء تلقائيًا مع Windows
+  German = Automatisch mit Windows starten
+  French = Démarrer automatiquement avec Windows
+  Dutch = Automatisch starten met Windows
+  Finnish = Käynnistä automaattisesti Windowsin kanssa
+  Spanish = Iniciar automáticamente con Windows
 
 TXT_BACK
   English = Back
   Japanese = 戻る
   Swedish = Tillbaka
   Italian = Indietro
+  Russian = Назад
+  Chinese = 返回
+  Persian = بازگشت
+  Arabic = رجوع
+  German = Zurück
+  French = Retour
+  Dutch = Terug
+  Finnish = Takaisin
+  Spanish = Atrás
 
 TXT_CHECKING_TOKEN
   English = Checking token syntax
   Japanese = トークン構文を確認中...
   Swedish = Kontrollerar token syntax
   Italian = Controllo la sintassi del token...
+  Russian = Проверка синтаксиса токена
+  Chinese = 正在检查令牌语法
+  Persian = در حال بررسی قالب توکن
+  Arabic = جارٍ التحقق من صيغة الرمز
+  German = Token-Syntax wird geprüft
+  French = Vérification de la syntaxe du jeton
+  Dutch = Tokensyntaxis controleren
+  Finnish = Tarkistetaan tunnuksen syntaksia
+  Spanish = Comprobando sintaxis del token
 
 TXT_CONNECT
   English = Connect
   Japanese = 接続
   Swedish = Anslut
   Italian = Connetti
+  Russian = Подкл.
+  Chinese = 连接
+  Persian = اتصال
+  Arabic = اتصال
+  German = Verbinden
+  French = Connecter
+  Dutch = Verbinden
+  Finnish = Yhdistä
+  Spanish = Conectar
 
 TXT_CONNECTED
   English = Connected
   Japanese = 接続されました
   Swedish = Ansluten
   Italian = Connesso
+  Russian = Подключено
+  Chinese = 已连接
+  Persian = متصل شد
+  Arabic = متصل
+  German = Verbunden
+  French = Connecté
+  Dutch = Verbonden
+  Finnish = Yhdistetty
+  Spanish = Conectado
 
 TXT_CONNECTING
   English = Connecting
   Japanese = 接続中
   Swedish = Ansluter
   Italian = Connessione in corso
+  Russian = Подключение
+  Chinese = 正在连接
+  Persian = در حال اتصال
+  Arabic = جارٍ الاتصال
+  German = Verbindung wird hergestellt
+  French = Connexion en cours
+  Dutch = Verbinden
+  Finnish = Yhdistetään
+  Spanish = Conectando
+
+TXT_STARTING_SSH_TUNNEL
+  English = Starting SSH tunnel...
+  Japanese = SSHトンネルを開始しています...
+  Swedish = Startar SSH-tunnel...
+  Italian = Avvio del tunnel SSH...
+  Russian = Запуск SSH-туннеля...
+  Chinese = 正在启动 SSH 隧道...
+  Persian = در حال راه‌اندازی تونل SSH...
+  Arabic = جارٍ بدء نفق SSH...
+  German = SSH-Tunnel wird gestartet...
+  French = Démarrage du tunnel SSH...
+  Dutch = SSH-tunnel starten...
+  Finnish = Käynnistetään SSH-tunnelia...
+  Spanish = Iniciando túnel SSH...
+
+TXT_STARTING_HTTPS_TUNNEL
+  English = Starting HTTPS tunnel...
+  Japanese = HTTPSトンネルを開始しています...
+  Swedish = Startar HTTPS-tunnel...
+  Italian = Avvio del tunnel HTTPS...
+  Russian = Запуск HTTPS-туннеля...
+  Chinese = 正在启动 HTTPS 隧道...
+  Persian = در حال راه‌اندازی تونل HTTPS...
+  Arabic = جارٍ بدء نفق HTTPS...
+  German = HTTPS-Tunnel wird gestartet...
+  French = Démarrage du tunnel HTTPS...
+  Dutch = HTTPS-tunnel starten...
+  Finnish = Käynnistetään HTTPS-tunnelia...
+  Spanish = Iniciando túnel HTTPS...
+
+TXT_STARTING_XRAY_TUNNEL
+  English = Starting Xray tunnel...
+  Japanese = Xrayトンネルを開始しています...
+  Swedish = Startar Xray-tunnel...
+  Italian = Avvio del tunnel Xray...
+  Russian = Запуск туннеля Xray...
+  Chinese = 正在启动 Xray 隧道...
+  Persian = در حال راه‌اندازی تونل Xray...
+  Arabic = جارٍ بدء نفق Xray...
+  German = Xray-Tunnel wird gestartet...
+  French = Démarrage du tunnel Xray...
+  Dutch = Xray-tunnel starten...
+  Finnish = Käynnistetään Xray-tunnelia...
+  Spanish = Iniciando túnel Xray...
 
 TXT_CONNECT_PORT
   English = Connect to port
   Japanese = 接続しているポート番号
   Swedish = Ansluter till port
   Italian = Connetti alla porta
+  Russian = Подключаться к порту
+  Chinese = 连接到端口
+  Persian = اتصال به پورت
+  Arabic = الاتصال بالمنفذ
+  German = Mit Port verbinden
+  French = Se connecter au port
+  Dutch = Verbinden met poort
+  Finnish = Yhdistä porttiin
+  Spanish = Conectar al puerto
 
 TXT_CONNECT_PROTOCOL
   English = Connect with protocol
   Japanese = 接続するプロトコル
   Swedish = Anslut med protokoll
   Italian = Connetti con il protocollo
+  Russian = Подключаться по протоколу
+  Chinese = 使用协议连接
+  Persian = اتصال با پروتکل
+  Arabic = الاتصال بالبروتوكول
+  German = Mit Protokoll verbinden
+  French = Se connecter avec le protocole
+  Dutch = Verbinden met protocol
+  Finnish = Yhdistä protokollalla
+  Spanish = Conectar con protocolo
 
 TXT_CONNECT_TIMEOUT
   English = Connection timed out
   Japanese = 接続がタイムアウトしました
   Swedish = Anslutningen har nått sin tidsgräns
   Italian = Connessione scaduta
+  Russian = Время ожидания подключения истекло
+  Chinese = 连接超时
+  Persian = زمان اتصال به پایان رسید
+  Arabic = انتهت مهلة الاتصال
+  German = Verbindung Zeitüberschreitung
+  French = Délai de connexion dépassé
+  Dutch = Verbinding verlopen
+  Finnish = Yhteys aikakatkaistiin
+  Spanish = Tiempo de conexión agotado
 
 TXT_COPY
   English = Copy
   Japanese = コピー
   Swedish = Kopiera
   Italian = Copia
+  Russian = Копировать
+  Chinese = 复制
+  Persian = کپی
+  Arabic = نسخ
+  German = Kopieren
+  French = Copier
+  Dutch = Kopiëren
+  Finnish = Kopioi
+  Spanish = Copiar
 
 TXT_DEFAULT_SERVER
   English = Global random
   Japanese = グローバル・ランダム
   Swedish = Global slumpad
   Italian = Casuale globale
+  Russian = Случайный глобальный
+  Chinese = 全球随机
+  Persian = تصادفی جهانی
+  Arabic = عشوائي عالمي
+  German = Weltweit zufällig
+  French = Aléatoire mondial
+  Dutch = Wereldwijd willekeurig
+  Finnish = Maailmanlaajuinen satunnainen
+  Spanish = Aleatorio global
 
 TXT_DISABLE_IPV6
   English = Disable IPv6
   Japanese = IPv6を無効にする
   Swedish = Inaktivera IPv6
   Italian = Disattiva IPv6
+  Russian = Отключить IPv6
+  Chinese = 禁用 IPv6
+  Persian = غیرفعال کردن IPv6
+  Arabic = تعطيل IPv6
+  German = IPv6 deaktivieren
+  French = Désactiver IPv6
+  Dutch = IPv6 uitschakelen
+  Finnish = Poista IPv6 käytöstä
+  Spanish = Desactivar IPv6
 
 TXT_DISABLING_IPV6
   English = Disabling IPv6
   Japanese = IPv6を無効にする
   Swedish = Inaktiverar IPv6
   Italian = Disattivazione IPv6
+  Russian = Отключение IPv6
+  Chinese = 正在禁用 IPv6
+  Persian = در حال غیرفعال کردن IPv6
+  Arabic = جارٍ تعطيل IPv6
+  German = IPv6 wird deaktiviert
+  French = Désactivation d’IPv6
+  Dutch = IPv6 uitschakelen
+  Finnish = Poistetaan IPv6 käytöstä
+  Spanish = Desactivando IPv6
 
 TXT_DISCONNECT
   English = Disconnect
   Japanese = 切断する
   Swedish = Avbryt anslutning
   Italian = Disconnetti
+  Russian = Отключиться
+  Chinese = 断开连接
+  Persian = قطع اتصال
+  Arabic = قطع الاتصال
+  German = Trennen
+  French = Déconnecter
+  Dutch = Verbreken
+  Finnish = Katkaise
+  Spanish = Desconectar
 
 TXT_DISCONNECTED
   English = Disconnected.
   Japanese = 切断されました
   Swedish = Ej ansluten.
   Italian = Disconnesso.
+  Russian = Отключено.
+  Chinese = 已断开连接。
+  Persian = قطع شد.
+  Arabic = تم قطع الاتصال.
+  German = Getrennt.
+  French = Déconnecté.
+  Dutch = Verbinding verbroken.
+  Finnish = Yhteys katkaistu.
+  Spanish = Desconectado.
 
 TXT_DISCONNECTING
   English = Disconnecting
   Japanese = 切断しています
   Swedish = Kopplar från
   Italian = Disconnessione in corso
+  Russian = Отключение
+  Chinese = 正在断开连接
+  Persian = در حال قطع اتصال
+  Arabic = جارٍ قطع الاتصال
+  German = Verbindung wird getrennt
+  French = Déconnexion en cours
+  Dutch = Verbinding verbreken
+  Finnish = Katkaistaan yhteyttä
+  Spanish = Desconectando
 
 TXT_DNS_LEAK
   English = Enable DNS leak prevention
   Japanese = DNS漏れ防止を有効にする
   Swedish = Aktivera DNS läckage skydd
   Italian = Attiva la protezione contro i DNS leak
-
-TXT_DNS_RESTORE
-  English = Restoring DNS
-  Japanese = DNSを戻します
-  Swedish = Återställer DNS
-  Italian = Ripristino DNS
+  Russian = Включить защиту от утечек DNS
+  Chinese = 启用 DNS 泄漏防护
+  Persian = فعال کردن جلوگیری از نشت DNS
+  Arabic = تمكين منع تسرب DNS
+  German = DNS-Leak-Schutz aktivieren
+  French = Activer la prévention des fuites DNS
+  Dutch = DNS-lekbescherming inschakelen
+  Finnish = Ota DNS-vuotonsuojaus käyttöön
+  Spanish = Activar prevención de fugas DNS
 
 TXT_DONE
   English = Done.
   Japanese = 完了しました
   Swedish = Färdig.
   Italian = Fatto.
+  Russian = Готово.
+  Chinese = 完成。
+  Persian = انجام شد.
+  Arabic = تم.
+  German = Fertig.
+  French = Terminé.
+  Dutch = Klaar.
+  Finnish = Valmis.
+  Spanish = Hecho.
 
 TXT_DOWNLOADED
   English = Downloaded
   Japanese = ダウンロードされました
   Swedish = Laddade ner
   Italian = Scaricato
+  Russian = Скачано
+  Chinese = 已下载
+  Persian = دانلود شد
+  Arabic = تم التنزيل
+  German = Heruntergeladen
+  French = Téléchargé
+  Dutch = Gedownload
+  Finnish = Ladattu
+  Spanish = Descargado
 
 TXT_DOWNLOADING
   English = Downloading
   Japanese = ダウンロード中
   Swedish = Laddar ner
   Italian = Download in corso
+  Russian = Скачивание
+  Chinese = 正在下载
+  Persian = در حال دانلود
+  Arabic = جارٍ التنزيل
+  German = Wird heruntergeladen
+  French = Téléchargement
+  Dutch = Downloaden
+  Finnish = Ladataan
+  Spanish = Descargando
 
 TXT_DOWNLOADING_LATEST
   English = Downloading latest widget installer
   Japanese = 最新のウィジェットインストーラーをダウンロード中
   Swedish = Hämtar senaste widget-installatören
   Italian = Download dell'ultima versione dell’installer del widget
+  Russian = Скачивание последнего установщика виджета
+  Chinese = 正在下载最新的小工具安装程序
+  Persian = در حال دانلود آخرین نصب‌کننده ویجت
+  Arabic = جارٍ تنزيل أحدث مثبت للأداة
+  German = Neuester Widget-Installer wird heruntergeladen
+  French = Téléchargement du dernier installateur du widget
+  Dutch = Nieuwste widgetinstallatieprogramma downloaden
+  Finnish = Ladataan uusinta widget-asennusohjelmaa
+  Spanish = Descargando el instalador más reciente del widget
 
 TXT_DOWNLOAD_VERIFIED
   English = Downloaded file verified correctly.
   Japanese = ダウンロードされたファイルが正しく認証されました
   Swedish = Nedladdad fil verifierad korrekt.
   Italian = File scaricato verificato correttamente.
+  Russian = Скачанный файл успешно проверен.
+  Chinese = 已正确验证下载的文件。
+  Persian = فایل دانلود شده با موفقیت تأیید شد.
+  Arabic = تم التحقق من الملف الذي تم تنزيله بنجاح.
+  German = Heruntergeladene Datei erfolgreich geprüft.
+  French = Fichier téléchargé vérifié correctement.
+  Dutch = Gedownload bestand correct geverifieerd.
+  Finnish = Ladattu tiedosto vahvistettiin onnistuneesti.
+  Spanish = Archivo descargado verificado correctamente.
 
 TXT_ENABLE_ADBLOCK
   English = Block intrusive ads/trackers
   Japanese = 押し付けがましいオンライン広告やトラッカーをブロックする
   Swedish = Blockera påträngande annonser/spårare
   Italian = Blocca gli annunci e i tracker invasivi
+  Russian = Блокировать навязчивую рекламу/трекеры
+  Chinese = 阻止侵入式广告/跟踪器
+  Persian = مسدود کردن تبلیغات/ردیاب‌های مزاحم
+  Arabic = حظر الإعلانات/المتعقبات المتطفلة
+  German = Aufdringliche Werbung/Tracker blockieren
+  French = Bloquer les publicités/traceurs intrusifs
+  Dutch = Opdringerige advertenties/trackers blokkeren
+  Finnish = Estä häiritsevät mainokset/seurannat
+  Spanish = Bloquear anuncios/rastreadores intrusivos
 
-TXT_DNSCRYPT_ENABLE
-  English = Enable DNSCrypt
-  Japanese = DNSCryptを有効にする
-  Swedish = Aktivera DNSCrypt
-  Italian = Attiva DNSCrypt
-
-TXT_DNSCRYPT_STARTING
-  English = Starting DNSCrypt service
-  Japanese = DNSCryptサービスを開始しています
-  Swedish = Startar DNSCrypt-tjänsten
-  Italian = Avvio servizio DNSCrypt in corso
-
-TXT_DNSCRYPT_STOPPING
-  English = Stopping DNSCrypt service
-  Japanese = DNSCryptサービスを停止しています
-  Swedish = Stoppar DNSCrypt-tjänst
-  Italian = Arresto servizio DNSCrypt in corso
-
-TXT_DNSCRYPT_INSTALLING
-  English = Installing DNSCrypt service
-  Japanese = DNSCryptサービスのインストール
-  Swedish = Installerar tjänsten DNSCrypt
-  Italian = Installazione servizio DNSCrypt in corso
-
-TXT_DNSCRYPT_UNINSTALLING
-  English = Uninstalling DNSCrypt service
-  Japanese = DNSCryptサービスのアンインストール
-  Swedish = Avinstallerar DNSCrypt-tjänsten
-  Italian = Disinstallazione servizio DNSCrypt in corso
+TXT_ENABLE_TUNNELCRACK
+  English = Block access to local network (TunnelCrack protection)
+  Japanese = ローカルネットワークへのアクセスをブロック（TunnelCrack保護）
+  Swedish = Blockera åtkomst till lokalt nätverk (TunnelCrack-skydd)
+  Italian = Blocca l'accesso alla rete locale (protezione TunnelCrack)
+  Russian = Блокировать доступ к локальной сети (защита TunnelCrack)
+  Chinese = 阻止访问本地网络（TunnelCrack 防护）
+  Persian = مسدود کردن دسترسی به شبکه محلی (محافظت TunnelCrack)
+  Arabic = حظر الوصول إلى الشبكة المحلية (حماية TunnelCrack)
+  German = Zugriff auf lokales Netzwerk blockieren (TunnelCrack-Schutz)
+  French = Bloquer l’accès au réseau local (protection TunnelCrack)
+  Dutch = Toegang tot lokaal netwerk blokkeren (TunnelCrack-bescherming)
+  Finnish = Estä pääsy paikallisverkkoon (TunnelCrack-suojaus)
+  Spanish = Bloquear acceso a la red local (protección TunnelCrack)
 
 TXT_EXIT
   English = Exit
   Japanese = 終了
   Swedish = Avsluta
   Italian = Esci
+  Russian = Выход
+  Chinese = 退出
+  Persian = خروج
+  Arabic = خروج
+  German = Beenden
+  French = Quitter
+  Dutch = Afsluiten
+  Finnish = Poistu
+  Spanish = Salir
 
 TXT_EXITING
   English = Exiting
   Japanese = 退出中
   Swedish = Avslutar
   Italian = Uscita in corso
+  Russian = Выход
+  Chinese = 正在退出
+  Persian = در حال خروج
+  Arabic = جارٍ الخروج
+  German = Wird beendet
+  French = Fermeture
+  Dutch = Afsluiten
+  Finnish = Poistutaan
+  Spanish = Saliendo
 
 TXT_FAILED_TO_START
   English = Failed to start
   Japanese = 起動に失敗しました
   Swedish = Misslyckades med att starta
   Italian = Impossibile avviare
+  Russian = Не удалось запустить
+  Chinese = 启动失败
+  Persian = شروع ناموفق بود
+  Arabic = فشل البدء
+  German = Start fehlgeschlagen
+  French = Échec du démarrage
+  Dutch = Starten mislukt
+  Finnish = Käynnistys epäonnistui
+  Spanish = Error al iniciar
 
 TXT_HERE
   English = here
   Japanese = ここで
   Swedish = här
   Italian = qui
+  Russian = здесь
+  Chinese = 这里
+  Persian = اینجا
+  Arabic = هنا
+  German = hier
+  French = ici
+  Dutch = hier
+  Finnish = täällä
+  Spanish = aquí
 
 TXT_KILLSWITCH_ENABLE
   English = Enable killswitch
   Japanese = キルスイッチを有効にする
   Swedish = Aktivera killswitch
   Italian = Attiva killswitch
+  Russian = Включить killswitch
+  Chinese = 启用 killswitch
+  Persian = فعال کردن killswitch
+  Arabic = تمكين مفتاح القفل
+  German = Killswitch aktivieren
+  French = Activer le killswitch
+  Dutch = Killswitch inschakelen
+  Finnish = Ota kill switch käyttöön
+  Spanish = Activar killswitch
 
 TXT_KILLSWITCH_EXPORTING_RULES
   English = Kill switch - Exporting rules
   Japanese = キルスイッチ - ルールのエクスポート中
   Swedish = Kill switch - Exportera regler
   Italian = Kill switch - Esportazione regole in corso
+  Russian = Kill switch - экспорт правил
+  Chinese = Kill switch - 正在导出规则
+  Persian = killswitch - در حال صدور قوانین
+  Arabic = مفتاح القفل - جارٍ تصدير القواعد
+  German = Kill Switch - Regeln werden exportiert
+  French = Killswitch - Exportation des règles
+  Dutch = Killswitch - regels exporteren
+  Finnish = Kill switch - viedään sääntöjä
+  Spanish = Killswitch - exportando reglas
 
 TXT_KILLSWITCH_CLEARING_EXISTING_RULES
   English = Kill switch - Clearing existing rules
   Japanese = キルスイッチ - 既存のルールをクリアしています
   Swedish = Kill switch - Rensa befintliga regler
   Italian = Kill switch - Pulizia regole esistenti in corso
+  Russian = Kill switch - очистка существующих правил
+  Chinese = Kill switch - 正在清除现有规则
+  Persian = killswitch - در حال پاک کردن قوانین موجود
+  Arabic = مفتاح القفل - جارٍ مسح القواعد الحالية
+  German = Kill Switch - vorhandene Regeln werden gelöscht
+  French = Killswitch - Suppression des règles existantes
+  Dutch = Killswitch - bestaande regels wissen
+  Finnish = Kill switch - tyhjennetään nykyisiä sääntöjä
+  Spanish = Killswitch - eliminando reglas existentes
 
 TXT_KILLSWITCH_BLOCKING_EVERYTHING
   English = Kill switch - Blocking everything by default
   Japanese = キルスイッチ - デフォルトですべてをブロックしています
   Swedish = Kill switch - Blockera allt som standard
   Italian = Kill switch - Blocco totale di default in corso
+  Russian = Kill switch - блокировка всего по умолчанию
+  Chinese = Kill switch - 默认阻止所有内容
+  Persian = killswitch - مسدود کردن همه چیز به طور پیش‌فرض
+  Arabic = مفتاح القفل - حظر كل شيء افتراضيًا
+  German = Kill Switch - standardmäßig alles blockieren
+  French = Killswitch - Blocage de tout par défaut
+  Dutch = Killswitch - standaard alles blokkeren
+  Finnish = Kill switch - estetään oletuksena kaikki
+  Spanish = Killswitch - bloqueando todo por defecto
 
 TXT_KILLSWITCH_WHITELISTING_DHCP
   English = Kill switch - Whitelisting DHCP
   Japanese = キルスイッチ - DHCP をホワイトリストに登録しています
   Swedish = Kill switch - Vitlista DHCP
   Italian = Kill switch - Inserimento DHCP in whitelist
+  Russian = Kill switch - добавление DHCP в белый список
+  Chinese = Kill switch - 正在将 DHCP 加入白名单
+  Persian = killswitch - افزودن DHCP به فهرست مجاز
+  Arabic = مفتاح القفل - إضافة DHCP إلى القائمة المسموح بها
+  German = Kill Switch - DHCP wird auf die Whitelist gesetzt
+  French = Killswitch - Ajout de DHCP à la liste blanche
+  Dutch = Killswitch - DHCP toestaan
+  Finnish = Kill switch - sallitaan DHCP
+  Spanish = Killswitch - añadiendo DHCP a la lista permitida
 
 TXT_KILLSWITCH_ALLOWING_LAN
   English = Kill switch - Allowing local network
   Japanese = キルスイッチ - ローカルネットワークを許可しています
   Swedish = Kill switch - Tillåta lokalt nätverk
   Italian = Kill switch - Abilitazione rete locale
+  Russian = Kill switch - разрешение локальной сети
+  Chinese = Kill switch - 允许本地网络
+  Persian = killswitch - اجازه دادن به شبکه محلی
+  Arabic = مفتاح القفل - السماح بالشبكة المحلية
+  German = Kill Switch - lokales Netzwerk erlauben
+  French = Killswitch - Autorisation du réseau local
+  Dutch = Killswitch - lokaal netwerk toestaan
+  Finnish = Kill switch - sallitaan paikallisverkko
+  Spanish = Killswitch - permitiendo red local
 
 TXT_KILLSWITCH_WHITELISTING_PROGRAMS
   English = Kill switch - Whitelisting programs
   Japanese = キルスイッチ - プログラムをホワイトリストに登録しています
   Swedish = Kill switch - Vitlista program
   Italian = Kill switch - Inserimento programmi consentiti
-
-TXT_KILLSWITCH_ALLOWING_PRECONNECT_DNS
-  English = Kill switch - Allowing pre-connection DNS
-  Japanese = キルスイッチ - 接続前 DNS を許可しています
-  Swedish = Kill switch - Tillåta DNS före anslutning
-  Italian = Kill switch - Abilitazione pre-connessione DNS
-
-TXT_KILLSWITCH_RESOLVING_ENDPOINTS
-  English = Kill switch - Resolving endpoints
-  Japanese = キルスイッチ - エンドポイントを解決しています
-  Swedish = Kill switch - Lösa slutpunkter
-  Italian = Kill switch - Risoluzione endpoints
+  Russian = Kill switch - добавление программ в белый список
+  Chinese = Kill switch - 正在将程序加入白名单
+  Persian = killswitch - افزودن برنامه‌ها به فهرست مجاز
+  Arabic = مفتاح القفل - إضافة البرامج إلى القائمة المسموح بها
+  German = Kill Switch - Programme werden auf die Whitelist gesetzt
+  French = Killswitch - Ajout des programmes à la liste blanche
+  Dutch = Killswitch - programma’s toestaan
+  Finnish = Kill switch - sallitaan ohjelmat
+  Spanish = Killswitch - añadiendo programas a la lista permitida
 
 TXT_KILLSWITCH_WHITELISTING_VPN_IPS
   English = Kill switch - Whitelisting VPN IPs
   Japanese = キルスイッチ - VPN IP をホワイトリストに登録しています
   Swedish = Kill switch - Vitlista VPN-IP:er
   Italian = Kill switch - Inserimento in whitelist IP VPN
+  Russian = Kill switch - добавление VPN IP в белый список
+  Chinese = Kill switch - 正在将 VPN IP 加入白名单
+  Persian = killswitch - افزودن IPهای VPN به فهرست مجاز
+  Arabic = مفتاح القفل - إضافة عناوين VPN IP إلى القائمة المسموح بها
+  German = Kill Switch - VPN-IPs werden auf die Whitelist gesetzt
+  French = Killswitch - Ajout des IP VPN à la liste blanche
+  Dutch = Killswitch - VPN-IP’s toestaan
+  Finnish = Kill switch - sallitaan VPN-IP-osoitteet
+  Spanish = Killswitch - añadiendo IP de VPN a la lista permitida
 
 TXT_KILLSWITCH_WHITELISTING_STATIC_IPS
   English = Kill switch - Whitelisting static IPs
   Japanese = キルスイッチ - 静的 IP をホワイトリストに登録しています
   Swedish = Kill switch - Vitlista statiska IP:er
   Italian = Kill switch - Inserimento IP statici in whitelist
+  Russian = Kill switch - добавление статических IP в белый список
+  Chinese = Kill switch - 正在将静态 IP 加入白名单
+  Persian = killswitch - افزودن IPهای ثابت به فهرست مجاز
+  Arabic = مفتاح القفل - إضافة عناوين IP الثابتة إلى القائمة المسموح بها
+  German = Kill Switch - statische IPs werden auf die Whitelist gesetzt
+  French = Killswitch - Ajout des IP statiques à la liste blanche
+  Dutch = Killswitch - statische IP’s toestaan
+  Finnish = Kill switch - sallitaan staattiset IP-osoitteet
+  Spanish = Killswitch - añadiendo IP estáticas a la lista permitida
 
 TXT_KILLSWITCH_ADDING_VPN_DNS_RULES
   English = Kill switch - Adding VPN DNS rules
   Japanese = キルスイッチ - VPN DNS ルールを追加しています
   Swedish = Kill switch - Lägga till VPN DNS-regler
   Italian = Kill switch - Inserimento regole DNS per VPN
+  Russian = Kill switch - добавление правил VPN DNS
+  Chinese = Kill switch - 正在添加 VPN DNS 规则
+  Persian = killswitch - افزودن قوانین DNS وی‌پی‌ان
+  Arabic = مفتاح القفل - إضافة قواعد DNS الخاصة بـ VPN
+  German = Kill Switch - VPN-DNS-Regeln werden hinzugefügt
+  French = Killswitch - Ajout des règles DNS VPN
+  Dutch = Killswitch - VPN-DNS-regels toevoegen
+  Finnish = Kill switch - lisätään VPN-DNS-sääntöjä
+  Spanish = Killswitch - añadiendo reglas DNS de VPN
 
 TXT_KILLSWITCH_ADDING_INTERNAL_VPN_IP_RULES
   English = Kill switch - Adding internal VPN IP rules
   Japanese = キルスイッチ - 内部 VPN IP ルールを追加しています
   Swedish = Kill switch - Lägga till interna VPN IP-regler
   Italian = Kill switch - Inserimento regole IP interni per VPN
+  Russian = Kill switch - добавление внутренних VPN IP-правил
+  Chinese = Kill switch - 正在添加内部 VPN IP 规则
+  Persian = killswitch - افزودن قوانین IP داخلی وی‌پی‌ان
+  Arabic = مفتاح القفل - إضافة قواعد IP الداخلية الخاصة بـ VPN
+  German = Kill Switch - interne VPN-IP-Regeln werden hinzugefügt
+  French = Killswitch - Ajout des règles IP VPN internes
+  Dutch = Killswitch - interne VPN-IP-regels toevoegen
+  Finnish = Kill switch - lisätään sisäisiä VPN-IP-sääntöjä
+  Spanish = Killswitch - añadiendo reglas IP internas de VPN
 
 TXT_KILLSWITCH_IMPORTED_PREVIOUS_RULES
   English = Imported previous firewall rules
   Japanese = 以前のファイアウォールルールをインポートしました
   Swedish = Importerade tidigare brandväggsregler
   Italian = Precedenti regole del firewall importate
+  Russian = Импортированы предыдущие правила брандмауэра
+  Chinese = 已导入以前的防火墙规则
+  Persian = قوانین قبلی فایروال وارد شد
+  Arabic = تم استيراد قواعد جدار الحماية السابقة
+  German = Vorherige Firewallregeln importiert
+  French = Règles de pare-feu précédentes importées
+  Dutch = Vorige firewallregels geïmporteerd
+  Finnish = Aiemmat palomuurisäännöt tuotu
+  Spanish = Reglas anteriores del cortafuegos importadas
 
 TXT_KILLSWITCH_IS_ENABLED_DISABLING
   English = Kill switch is enabled, disabling...
   Japanese = キルスイッチが有効です。無効にしています…
   Swedish = Kill switch är aktiverad, inaktiverar...
   Italian = Kill switch è attivo, disattivazione...
+  Russian = Kill switch включен, отключение...
+  Chinese = Kill switch 已启用，正在禁用...
+  Persian = killswitch فعال است، در حال غیرفعال کردن...
+  Arabic = مفتاح القفل مفعّل، جارٍ تعطيله...
+  German = Kill Switch ist aktiviert, wird deaktiviert...
+  French = Le killswitch est activé, désactivation...
+  Dutch = Killswitch is ingeschakeld, uitschakelen...
+  Finnish = Kill switch on käytössä, poistetaan käytöstä...
+  Spanish = Killswitch activado, desactivando...
 
 TXT_KILLSWITCH_RULES_DELETED
   English = Kill switch firewall rules deleted
   Japanese = キルスイッチのファイアウォールルールを削除しました
   Swedish = Kill switch brandväggsregler raderade
   Italian = Regole firewall del kill switch eliminate
+  Russian = Правила брандмауэра killswitch удалены
+  Chinese = 已删除 killswitch 防火墙规则
+  Persian = قوانین فایروال killswitch حذف شد
+  Arabic = تم حذف قواعد جدار الحماية الخاصة بمفتاح القفل
+  German = Kill-Switch-Firewallregeln gelöscht
+  French = Règles de pare-feu du killswitch supprimées
+  Dutch = Firewallregels van killswitch verwijderd
+  Finnish = Kill switchin palomuurisäännöt poistettu
+  Spanish = Reglas del cortafuegos del killswitch eliminadas
 
 TXT_KILLSWITCH_FW_NOTIFICATIONS_ENABLED
   English = Firewall notifications enabled
   Japanese = ファイアウォール通知が有効です
   Swedish = Brandväggsmeddelanden aktiverade
   Italian = Notifiche firewall attivate
+  Russian = Уведомления брандмауэра включены
+  Chinese = 防火墙通知已启用
+  Persian = اعلان‌های فایروال فعال شد
+  Arabic = تم تمكين إشعارات جدار الحماية
+  German = Firewallbenachrichtigungen aktiviert
+  French = Notifications du pare-feu activées
+  Dutch = Firewallmeldingen ingeschakeld
+  Finnish = Palomuurin ilmoitukset käytössä
+  Spanish = Notificaciones del cortafuegos activadas
 
 TXT_KILLSWITCH_FW_PROFILE_POLICIES_RESTORED
   English = Firewall profile policies restored
   Japanese = ファイアウォールプロファイルポリシーを復元しました
   Swedish = Brandväggsprofilpolicyer återställda
   Italian = Politiche profilo firewall ripristinate
+  Russian = Политики профилей брандмауэра восстановлены
+  Chinese = 防火墙配置文件策略已恢复
+  Persian = سیاست‌های پروفایل فایروال بازیابی شد
+  Arabic = تمت استعادة سياسات ملفات تعريف جدار الحماية
+  German = Firewallprofilrichtlinien wiederhergestellt
+  French = Stratégies de profil du pare-feu restaurées
+  Dutch = Firewallprofielbeleid hersteld
+  Finnish = Palomuuriprofiilien käytännöt palautettu
+  Spanish = Directivas de perfil del cortafuegos restauradas
 
 TXT_LANGUAGE
   English = Language
   Japanese = 言語
   Swedish = Språk
   Italian = Lingua
+  Russian = Язык
+  Chinese = 语言
+  Persian = زبان
+  Arabic = اللغة
+  German = Sprache
+  French = Langue
+  Dutch = Taal
+  Finnish = Kieli
+  Spanish = Idioma
 
 TXT_LOGGING_IN
   English = Logging into cryptostorm
   Japanese = cryptostormにログインしています
   Swedish = Loggar in på cryptostorm
   Italian = Accesso a cryptostorm
-
+  Russian = Вход в cryptostorm
+  Chinese = 正在登录 cryptostorm
+  Persian = در حال ورود به cryptostorm
+  Arabic = جارٍ تسجيل الدخول إلى cryptostorm
+  German = Anmeldung bei cryptostorm
+  French = Connexion à cryptostorm
+  Dutch = Aanmelden bij cryptostorm
+  Finnish = Kirjaudutaan cryptostormiin
+  Spanish = Iniciando sesión en cryptostorm
+ 
 TXT_MAINWINDOW1
   English = To connect to cryptostorm, provide an access token below.
-  Japanese = cryptostormに接続するために、下にアクセストークンを入力してください
-  Swedish = För att ansluta till cryptostorm, uppge ett åtkomst-token nedan.
-  Italian = Per connetterti a cryptostorm, inserisci un token di accesso qui sotto.
+  Japanese = cryptostorm用トークンを入力してください
+  Swedish = Ange åtkomsttoken för cryptostorm.
+  Italian = Inserisci il token per cryptostorm.
+  Russian = Введите токен доступа для подключения к cryptostorm.
+  Chinese = 输入 cryptostorm 访问令牌。
+  Persian = توکن دسترسی cryptostorm را وارد کنید.
+  Arabic = أدخل رمز وصول cryptostorm.
+  German = Zugriffstoken für cryptostorm eingeben.
+  French = Indiquez le jeton cryptostorm.
+  Dutch = Voer het cryptostorm-token in.
+  Finnish = Anna cryptostorm-käyttötunnus.
+  Spanish = Introduzca el token de cryptostorm.
 
 TXT_MAINWINDOW2
-  English = If you don't have one, you can get one
-  Japanese = アクセストークンを入手したい場合、
-  Swedish = Om du inte har ett, kan du få ett
-  Italian = Se non ce l'hai, puoi ottenerlo
+  English = Get an access token
+  Japanese = アクセストークンの入手は
+  Swedish = Hämta ett åtkomsttoken
+  Italian = Ottieni un token
+  Russian = Получить токен можно
+  Chinese = 获取访问令牌：
+  Persian = دریافت توکن دسترسی:
+  Arabic = احصل على رمز وصول
+  German = Zugriffstoken erhalten:
+  French = Obtenir un jeton :
+  Dutch = Toegangstoken verkrijgen:
+  Finnish = Hanki käyttötunnus:
+  Spanish = Obtener un token:
 
 TXT_MAINWINDOW5
-  English = If you need to verify your token, go
-  Japanese = トークンを検証するには、
-  Swedish = Om du behöver verifiera ditt token, gå
-  Italian = Se hai bisogno di verificare il tuo token, vai
+  English = Verify your token
+  Japanese = トークンの確認は
+  Swedish = Verifiera ditt token
+  Italian = Verifica il tuo token
+  Russian = Проверить токен можно
+  Chinese = 验证令牌：
+  Persian = تأیید توکن:
+  Arabic = تحقق من رمزك
+  German = Token prüfen:
+  French = Vérifier votre jeton :
+  Dutch = Token verifiëren:
+  Finnish = Vahvista tunnuksesi:
+  Spanish = Verificar su token:
 
 TXT_NO_SPLASH
   English = Disable splash image on startup.
   Japanese = スタートアップ時にスプラッシュスクリーンを無効にする
   Swedish = Inaktivera splash bild vid start.
   Italian = Disattiva la schermata iniziale all'avvio.
+  Russian = Отключить заставку при запуске.
+  Chinese = 启动时禁用启动图像。
+  Persian = غیرفعال کردن تصویر آغازین هنگام شروع.
+  Arabic = تعطيل صورة البداية عند التشغيل.
+  German = Startbild beim Start deaktivieren.
+  French = Désactiver l’image de démarrage au lancement.
+  Dutch = Splashafbeelding bij opstarten uitschakelen.
+  Finnish = Poista aloituskuva käytöstä käynnistyksessä.
+  Spanish = Desactivar imagen de inicio al arrancar.
 
 TXT_NOT_CONNECTED
   English = Not connected
   Japanese = 接続されていません
   Swedish = Ej ansluten
   Italian = Non connesso
+  Russian = Не подключено
+  Chinese = 未连接
+  Persian = متصل نیست
+  Arabic = غير متصل
+  German = Nicht verbunden
+  French = Non connecté
+  Dutch = Niet verbonden
+  Finnish = Ei yhteyttä
+  Spanish = No conectado
 
 TXT_OPTIONS
   English = Options
   Japanese = オプション
   Swedish = Alternativ
   Italian = Opzioni
+  Russian = Параметры
+  Chinese = 选项
+  Persian = گزینه‌ها
+  Arabic = خيارات
+  German = Optionen
+  French = Options
+  Dutch = Opties
+  Finnish = Asetukset
+  Spanish = Opciones
 
 TXT_PASTE
   English = Paste
   Japanese = 貼り付け
   Swedish = Klistra in
   Italian = Incolla
+  Russian = Вставить
+  Chinese = 粘贴
+  Persian = چسباندن
+  Arabic = لصق
+  German = Einfügen
+  French = Coller
+  Dutch = Plakken
+  Finnish = Liitä
+  Spanish = Pegar
 
 TXT_RANDOM_PORT
   English = Random port
   Japanese = ランダムポート
   Swedish = Slumpmässig port
   Italian = Porta casuale
+  Russian = Случайный порт
+  Chinese = 随机端口
+  Persian = پورت تصادفی
+  Arabic = منفذ عشوائي
+  German = Zufälliger Port
+  French = Port aléatoire
+  Dutch = Willekeurige poort
+  Finnish = Satunnainen portti
+  Spanish = Puerto aleatorio
 
 TXT_SAVE
   English = Save?
   Japanese = セーブしますか？
   Swedish = Spara?
   Italian = Salvare?
+  Russian = Сохранить?
+  Chinese = 保存？
+  Persian = ذخیره شود؟
+  Arabic = حفظ؟
+  German = Speichern?
+  French = Enregistrer ?
+  Dutch = Opslaan?
+  Finnish = Tallenna?
+  Spanish = ¿Guardar?
 
 TXT_SECURITY
   English = Security
   Japanese = セキュリティー
   Swedish = Säkerhet
   Italian = Sicurezza
-
-TXT_SET_DNS_DNSCRYPT
-  English = Setting DNS to DNSCrypt
-  Japanese = DNS を DNSCrypt に設定しています
-  Swedish = Ställer in DNS till DNSCrypt
-  Italian = Utilizzo DNS su DNSCrypt
+  Russian = Безопасность
+  Chinese = 安全
+  Persian = امنیت
+  Arabic = الأمان
+  German = Sicherheit
+  French = Sécurité
+  Dutch = Beveiliging
+  Finnish = Suojaus
+  Spanish = Seguridad
 
 TXT_SOCKS_NO_KILLSWITCH
   English = The killswitch will be disabled since a SOCKS proxy is being used
   Japanese = SOCKSプロキシが使用されているため、キルスイッチは無効になります
   Swedish = Kill-switchen är inaktiverad eftersom en SOCKS-proxy används
   Italian = Il killswitch verrà disattivato poiché è in uso un proxy SOCKS
+  Russian = Killswitch будет отключен, так как используется SOCKS-прокси
+  Chinese = 由于正在使用 SOCKS 代理，killswitch 将被禁用
+  Persian = به دلیل استفاده از پروکسی SOCKS، killswitch غیرفعال خواهد شد
+  Arabic = سيتم تعطيل مفتاح القفل لأن وكيل SOCKS قيد الاستخدام
+  German = Der Killswitch wird deaktiviert, da ein SOCKS-Proxy verwendet wird
+  French = Le killswitch sera désactivé car un proxy SOCKS est utilisé
+  Dutch = De killswitch wordt uitgeschakeld omdat er een SOCKS-proxy wordt gebruikt
+  Finnish = Kill switch poistetaan käytöstä, koska SOCKS-välityspalvelin on käytössä
+  Spanish = El killswitch se desactivará porque se está usando un proxy SOCKS
 
 TXT_STARTUP
   English = Startup
   Japanese = スタートアップ
   Swedish = Uppstart
   Italian = Avvio
+  Russian = Запуск
+  Chinese = 启动
+  Persian = راه‌اندازی
+  Arabic = بدء التشغيل
+  German = Start
+  French = Démarrage
+  Dutch = Opstarten
+  Finnish = Käynnistys
+  Spanish = Inicio
 
 TXT_SUSPENDING
   English = System entering suspended state
   Japanese = システムは中断状態に入ります
   Swedish = Systemet går in i suspenderat tillstånd
   Italian = Il sistema sta entrando in stato di sospensione
+  Russian = Система переходит в спящий режим
+  Chinese = 系统正在进入挂起状态
+  Persian = سیستم در حال ورود به حالت تعلیق است
+  Arabic = النظام يدخل حالة التعليق
+  German = System wechselt in den Ruhezustand
+  French = Le système entre en veille
+  Dutch = Systeem gaat in slaapstand
+  Finnish = Järjestelmä siirtyy keskeytystilaan
+  Spanish = El sistema entra en estado suspendido
 
 TXT_TIMEOUT
   English = Timeout
   Japanese = タイムアウト
   Swedish = Avbrott
   Italian = Tempo scaduto
+  Russian = Тайм-аут
+  Chinese = 超时
+  Persian = مهلت زمانی
+  Arabic = انتهاء المهلة
+  German = Zeitüberschreitung
+  French = Délai dépassé
+  Dutch = Time-out
+  Finnish = Aikakatkaisu
+  Spanish = Tiempo agotado
 
 TXT_TOOLTIP_TOKEN
   English = Token format: xxxx-xxxx-xxxx-xxxx (including dashes)
   Japanese = トークン書式: xxxx-xxxx-xxxx-xxxx（ハイフンを省略しないで下さい）
   Swedish = Token format: xxxx-xxxx-xxxx-xxxx (inkludera bindestreck)
   Italian = Formato token: xxxx-xxxx-xxxx-xxxx (inclusi i trattini)
+  Russian = Формат токена: xxxx-xxxx-xxxx-xxxx (включая дефисы)
+  Chinese = 令牌格式：xxxx-xxxx-xxxx-xxxx（包括连字符）
+  Persian = قالب توکن: xxxx-xxxx-xxxx-xxxx (شامل خط تیره‌ها)
+  Arabic = تنسيق الرمز: xxxx-xxxx-xxxx-xxxx (بما في ذلك الشرطات)
+  German = Token-Format: xxxx-xxxx-xxxx-xxxx (einschließlich Bindestriche)
+  French = Format du jeton : xxxx-xxxx-xxxx-xxxx (tirets inclus)
+  Dutch = Tokenindeling: xxxx-xxxx-xxxx-xxxx (inclusief streepjes)
+  Finnish = Tunnuksen muoto: xxxx-xxxx-xxxx-xxxx (väliviivat mukaan lukien)
+  Spanish = Formato del token: xxxx-xxxx-xxxx-xxxx (incluidos los guiones)
 
 TXT_UPDATE
   English = Update
   Japanese = アップデート
   Swedish = Uppdatera
   Italian = Aggiorna
+  Russian = Обновить
+  Chinese = 更新
+  Persian = به‌روزرسانی
+  Arabic = تحديث
+  German = Aktualisieren
+  French = Mettre à jour
+  Dutch = Bijwerken
+  Finnish = Päivitä
+  Spanish = Actualizar
 
 TXT_UPDATE_CHECKING
   English = Checking for updates
   Japanese = アップデートをチェックしています
   Swedish = Söker efter uppdateringar
   Italian = Verifica aggiornamenti
+  Russian = Проверка обновлений
+  Chinese = 正在检查更新
+  Persian = در حال بررسی به‌روزرسانی‌ها
+  Arabic = جارٍ التحقق من التحديثات
+  German = Suche nach Updates
+  French = Recherche de mises à jour
+  Dutch = Controleren op updates
+  Finnish = Tarkistetaan päivityksiä
+  Spanish = Comprobando actualizaciones
 
 TXT_UPDATE_NODELIST
   English = Updating node list
   Japanese = ノードリストを更新中
   Swedish = Uppdaterar nod-lista
   Italian = Aggiornamento lista nodi
+  Russian = Обновление списка узлов
+  Chinese = 正在更新节点列表
+  Persian = در حال به‌روزرسانی فهرست گره‌ها
+  Arabic = جارٍ تحديث قائمة العقد
+  German = Knotenliste wird aktualisiert
+  French = Mise à jour de la liste des nœuds
+  Dutch = Nodelijst bijwerken
+  Finnish = Päivitetään solmulistaa
+  Spanish = Actualizando lista de nodos
 
 TXT_UPDATE_NODELIST_DONE
   English = Node list update complete.
   Japanese = ノードリスト更新完了
   Swedish = Nod-listan uppdaterades.
   Italian = Aggiornamento lista nodi completato.
+  Russian = Обновление списка узлов завершено.
+  Chinese = 节点列表更新完成。
+  Persian = به‌روزرسانی فهرست گره‌ها کامل شد.
+  Arabic = اكتمل تحديث قائمة العقد.
+  German = Aktualisierung der Knotenliste abgeschlossen.
+  French = Mise à jour de la liste des nœuds terminée.
+  Dutch = Nodelijst bijgewerkt.
+  Finnish = Solmulistan päivitys valmis.
+  Spanish = Actualización de la lista de nodos completada.
 
 TXT_UPGRADING1
   English = Now disconnect and exit this program.
   Japanese = 切断してこのプログラムを終了して下さい。
   Swedish = Koppla nu ner och avsluta det här programmet.
   Italian = Ora disconnettiti ed esci da questo programma.
+  Russian = Теперь отключитесь и выйдите из этой программы.
+  Chinese = 现在请断开连接并退出此程序。
+  Persian = اکنون قطع اتصال کنید و از این برنامه خارج شوید.
+  Arabic = الآن اقطع الاتصال واخرج من هذا البرنامج.
+  German = Trennen Sie jetzt die Verbindung und beenden Sie dieses Programm.
+  French = Déconnectez-vous maintenant et quittez ce programme.
+  Dutch = Verbreek nu de verbinding en sluit dit programma af.
+  Finnish = Katkaise nyt yhteys ja sulje tämä ohjelma.
+  Spanish = Desconecte ahora y salga de este programa.
 
 TXT_UPGRADING2
   English = When the widget closes, the installer for the latest version will start.
   Japanese = ウィジェットが閉じると、最新バージョンへのアップグレードが起動します。
   Swedish = När widgeten stängs, startar installationsprogrammet för den senaste versionen.
   Italian = Alla chiusura del widget, verrà avviato il programma di installazione per l'ultima versione.
+  Russian = Когда виджет закроется, запустится установщик последней версии.
+  Chinese = 当小工具关闭时，最新版本的安装程序将启动。
+  Persian = وقتی ویجت بسته شود، نصب‌کننده آخرین نسخه شروع می‌شود.
+  Arabic = عند إغلاق الأداة، سيبدأ مثبت أحدث إصدار.
+  German = Wenn das Widget geschlossen wird, startet der Installer für die neueste Version.
+  French = Lorsque le widget se fermera, l’installateur de la dernière version démarrera.
+  Dutch = Wanneer de widget sluit, wordt het installatieprogramma voor de nieuwste versie gestart.
+  Finnish = Kun widget sulkeutuu, uusimman version asennusohjelma käynnistyy.
+  Spanish = Cuando se cierre el widget, se iniciará el instalador de la versión más reciente.
 
 TXT_WINTUN_CLEANUP
   English = Cleaning up Wintun adapter
   Japanese = Wintun アダプタのクリーンアップ
   Swedish = Rengöring av Wintun-adaptern
   Italian = Pulizia adattatore Wintun
-
-TXT_WINTUN_RESTORING_DEFAULTS
-  English = Restoring the adapter to its default settings
-  Japanese = アダプタをデフォルト設定に復元する
-  Swedish = Återställa adaptern till standardinställningarna
-  Italian = Ripristino dell’adattatore alle impostazioni predefinite
-
-TXT_WINTUN_STARTING
-  English = Starting Wintun adapter
-  Japanese = Wintunアダプタの起動
-  Swedish = Startar Wintun-adaptern
-  Italian = Avvio adattatore Wintun
-
-TXT_WINTUN_STOPPED
-  English = Wintun adapter stopped
-  Japanese = Wintunアダプタを停止しました
-  Swedish = Stoppad Wintun-adapter
-  Italian = Adattatore Wintun arrestato
-
-TXT_WINTUN_STOPPED_AND_UNINSTALLED
-  English = Wintun adapter stopped and uninstalled
-  Japanese = Wintunアダプタが停止しアンインストールされました
-  Swedish = Wintun-adaptern stoppades och avinstallerades
-  Italian = Adattatore Wintun arrestato e disinstallato
+  Russian = Очистка адаптера Wintun
+  Chinese = 正在清理 Wintun 适配器
+  Persian = در حال پاک‌سازی آداپتور Wintun
+  Arabic = جارٍ تنظيف محول Wintun
+  German = Wintun-Adapter wird bereinigt
+  French = Nettoyage de l’adaptateur Wintun
+  Dutch = Wintun-adapter opschonen
+  Finnish = Siivotaan Wintun-sovitinta
+  Spanish = Limpiando adaptador Wintun
