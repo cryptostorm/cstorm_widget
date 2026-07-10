@@ -377,7 +377,9 @@ sub build_main_window {
         $ui->{mainwin}->{pbar}->configure(-length => $width);
         $ui->{mainwin}->{status_lbl}->configure(-width => ($width / 60));
     };
-    $ui->{opt_main}->{tabs}->configure(-width  => 465, -height => 230);
+    # Options notebook is sized from its actual tab contents in client.pl.
+    # Do not force the old 465x230 size here; that clipped the Advanced tab on
+    # some small Windows displays.
     my $mw_x = int((Tkx::winfo('screenwidth',  $ui->{mainwin}->{mw})  - $width  ) / 2);
     my $mw_y = int((Tkx::winfo('screenheight', $ui->{mainwin}->{mw})  - $height ) / 2);
     $ui->{mainwin}->{mw}->g_wm_geometry("+$mw_x+$mw_y");

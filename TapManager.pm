@@ -69,6 +69,7 @@ sub ensure_tap_adapter {
     my @before = list_tap_adapters(
         state    => $state,
         ovpn_exe => $ovpn_exe,
+        Registry => $Registry,
     );
 
     my $known_guid = _normalize_guid($state->{connect}->{cryptostorm_tap_guid});
@@ -79,15 +80,16 @@ sub ensure_tap_adapter {
         for my $tap (@before) {
             if (_normalize_guid($tap->{guid}) eq $known_guid) {
                 _dbg("found known cryptostorm TAP by GUID: name=" . ($tap->{name} // '') . " guid=$known_guid");
-                $tap = _rename_known_tap_if_needed(
-                    state       => $state,
-                    tap         => $tap,
-                    wanted_name => $wanted_name,
-                    ovpn_exe    => $ovpn_exe,
-                    on_status   => $on_status,
+                return _prepare_tap_for_use(
+                    state            => $state,
+                    tap              => $tap,
+                    wanted_name      => $wanted_name,
+                    ovpn_exe         => $ovpn_exe,
+                    Registry         => $Registry,
+                    on_status        => $on_status,
+                    owned_by_us      => 1,
+                    rename_to_wanted => 1,
                 );
-                _remember_tap($state, $tap, 1);
-                return 1;
             }
         }
     }
@@ -96,8 +98,16 @@ sub ensure_tap_adapter {
     for my $tap (@before) {
         if (lc($tap->{name} // '') eq lc($wanted_name)) {
             _dbg("found existing owned TAP: $tap->{name} guid=" . ($tap->{guid} // ''));
-            _remember_tap($state, $tap, 1);
-            return 1;
+            return _prepare_tap_for_use(
+                state            => $state,
+                tap              => $tap,
+                wanted_name      => $wanted_name,
+                ovpn_exe         => $ovpn_exe,
+                Registry         => $Registry,
+                on_status        => $on_status,
+                owned_by_us      => 1,
+                rename_to_wanted => 0,
+            );
         }
     }
 
@@ -114,14 +124,26 @@ sub ensure_tap_adapter {
             . ($tap->{guid} // '')
         );
 
-        _remember_tap($state, $tap, 0);
-        return 1;
+        return _prepare_tap_for_use(
+            state            => $state,
+            tap              => $tap,
+            wanted_name      => $wanted_name,
+            ovpn_exe         => $ovpn_exe,
+            Registry         => $Registry,
+            on_status        => $on_status,
+            owned_by_us      => 0,
+            rename_to_wanted => 0,
+        );
     }
 
     # 4. Multiple adapters with no owned/known cryptostorm adapter.
-    # Safer to stop instead of hijacking another VPN's adapter.
+    # If they are all registry-only/inactive TAPs, reuse one instead of creating
+    # a new disabled adapter on every launch.  This happens on some Windows 11
+    # systems where devcon succeeds but the new TAP is initially disabled or not
+    # immediately listed by OpenVPN --show-adapters.
     if (@before > 1) {
-        _dbg("multiple TAP adapters found and none named/known as $wanted_name; refusing to guess");
+        my @openvpn_visible = grep { $_->{openvpn_visible} } @before;
+        my @registry_only   = grep { !$_->{openvpn_visible} } @before;
 
         for my $tap (@before) {
             _dbg(
@@ -131,8 +153,35 @@ sub ensure_tap_adapter {
                 . ($tap->{guid} // '')
                 . " driver="
                 . ($tap->{driver} // '')
+                . " source="
+                . ($tap->{source} // '')
+                . " openvpn_visible="
+                . ($tap->{openvpn_visible} ? 1 : 0)
             );
         }
+
+        if (!@openvpn_visible && @registry_only) {
+            my $tap = _choose_registry_tap_to_claim(@registry_only);
+            _dbg(
+                "multiple inactive TAP adapters found; reusing/claiming one instead of installing another: name="
+                . ($tap->{name} // '')
+                . " guid="
+                . ($tap->{guid} // '')
+            );
+
+            return _prepare_tap_for_use(
+                state            => $state,
+                tap              => $tap,
+                wanted_name      => $wanted_name,
+                ovpn_exe         => $ovpn_exe,
+                Registry         => $Registry,
+                on_status        => $on_status,
+                owned_by_us      => 1,
+                rename_to_wanted => 1,
+            );
+        }
+
+        _dbg("multiple active/visible TAP adapters found and none named/known as $wanted_name; refusing to guess");
 
         return _tap_fail(
             $state,
@@ -140,7 +189,7 @@ sub ensure_tap_adapter {
         );
     }
 
-    # 5. No visible adapters: install one using the bundled TAP package.
+    # 5. No TAP adapters found: install one using the bundled TAP package.
     _dbg("no usable TAP adapters found; installing new TAP");
 
     _free_interface_name($wanted_name);
@@ -250,6 +299,7 @@ sub ensure_tap_adapter {
         my @after = list_tap_adapters(
             state    => $state,
             ovpn_exe => $ovpn_exe,
+            Registry => $Registry,
         );
 
         my @new = grep {
@@ -281,33 +331,17 @@ sub ensure_tap_adapter {
     _dbg("new TAP ready: name=" . ($created->{name} // '') . " guid=" . ($created->{guid} // ''));
 
     # This adapter was just installed by us, so it is safe to claim the friendly
-    # name.  Existing third-party TAP adapters are not renamed above.
-    if (lc($created->{name} // '') ne lc($wanted_name)) {
-        $on_status->('Naming TAP adapter...');
-        _rename_interface($created->{name}, $wanted_name);
-
-        for (1 .. 40) {
-            my @final = list_tap_adapters(
-                state    => $state,
-                ovpn_exe => $ovpn_exe,
-            );
-
-            for my $tap (@final) {
-                if (_normalize_guid($tap->{guid}) eq _normalize_guid($created->{guid})) {
-                    $created = $tap;
-                    last;
-                }
-            }
-
-            last if lc($created->{name} // '') eq lc($wanted_name);
-
-            Tkx::update('idletasks');
-            select undef, undef, undef, 0.25;
-        }
-    }
-
-    _remember_tap($state, $created, 1);
-    return 1;
+    # name and enable it if Windows created it disabled.
+    return _prepare_tap_for_use(
+        state            => $state,
+        tap              => $created,
+        wanted_name      => $wanted_name,
+        ovpn_exe         => $ovpn_exe,
+        Registry         => $Registry,
+        on_status        => $on_status,
+        owned_by_us      => 1,
+        rename_to_wanted => 1,
+    );
 }
 
 sub _normalize_guid {
@@ -339,6 +373,168 @@ sub _remember_tap {
     return 1;
 }
 
+sub _prepare_tap_for_use {
+    my (%args) = @_;
+
+    my $state            = $args{state};
+    my $tap              = $args{tap};
+    my $wanted_name      = $args{wanted_name} || 'cryptostorm VPN';
+    my $ovpn_exe         = $args{ovpn_exe} || 'openvpn.exe';
+    my $Registry         = $args{Registry};
+    my $on_status        = $args{on_status} || sub {};
+    my $owned_by_us      = $args{owned_by_us} ? 1 : 0;
+    my $rename_to_wanted = $args{rename_to_wanted} ? 1 : 0;
+
+    return _tap_fail($state, 'Internal error: missing TAP adapter record')
+        unless ref($tap) eq 'HASH';
+
+    my $guid = _normalize_guid($tap->{guid});
+    return _tap_fail($state, 'Internal error: TAP adapter record has no GUID')
+        unless length $guid;
+
+    my $name = $tap->{name} // '';
+
+    if (length $name || length $guid) {
+        $on_status->('Enabling TAP adapter...');
+        _enable_interface($name, $guid);
+    }
+
+    if ($rename_to_wanted && lc($tap->{name} // '') ne lc($wanted_name)) {
+        $on_status->('Naming TAP adapter...');
+        _rename_interface_by_guid($guid, $wanted_name)
+            || _rename_interface($tap->{name}, $wanted_name);
+    }
+
+    my $latest = _wait_for_tap_by_guid(
+        state    => $state,
+        guid     => $guid,
+        ovpn_exe => $ovpn_exe,
+        Registry => $Registry,
+        seconds  => 15,
+    );
+
+    $tap = $latest if ref($latest) eq 'HASH';
+
+    # If the adapter is still not visible to OpenVPN after enabling/renaming,
+    # keep the GUID/name instead of installing yet another TAP.  This makes the
+    # failure mode deterministic and avoids filling Windows with disabled
+    # TAP-Windows Adapter V9 #2/#3/#4/... devices on localized or preview builds.
+    if (!$tap->{openvpn_visible}) {
+        _dbg(
+            "TAP adapter guid=$guid name="
+            . ($tap->{name} // '')
+            . " is known through registry but is not listed by OpenVPN --show-adapters yet"
+        );
+    }
+
+    _remember_tap($state, $tap, $owned_by_us);
+    return 1;
+}
+
+sub _wait_for_tap_by_guid {
+    my (%args) = @_;
+
+    my $state    = $args{state};
+    my $guid     = _normalize_guid($args{guid});
+    my $ovpn_exe = $args{ovpn_exe} || 'openvpn.exe';
+    my $Registry = $args{Registry};
+    my $seconds  = $args{seconds} || 10;
+
+    return undef unless length $guid;
+
+    my $latest;
+    my $tries = int($seconds * 2);
+    $tries = 1 if $tries < 1;
+
+    for (1 .. $tries) {
+        my @adapters = list_tap_adapters(
+            state    => $state,
+            ovpn_exe => $ovpn_exe,
+            Registry => $Registry,
+        );
+
+        for my $tap (@adapters) {
+            next unless _normalize_guid($tap->{guid}) eq $guid;
+            $latest = $tap;
+            return $tap if $tap->{openvpn_visible};
+        }
+
+        eval { Tkx::update(); 1 } or eval { Tkx::update('idletasks'); };
+        select undef, undef, undef, 0.50;
+    }
+
+    return $latest;
+}
+
+sub _choose_registry_tap_to_claim {
+    my (@taps) = @_;
+
+    @taps = grep { ref($_) eq 'HASH' && length(_normalize_guid($_->{guid})) } @taps;
+
+    # Prefer the newest-looking numbered Windows name when repeated failed
+    # installs have left several disabled TAP-Windows Adapter V9 instances.
+    @taps = sort {
+        _interface_name_suffix_num($b->{name}) <=> _interface_name_suffix_num($a->{name})
+            || (_normalize_guid($a->{guid}) cmp _normalize_guid($b->{guid}))
+    } @taps;
+
+    return $taps[0];
+}
+
+sub _interface_name_suffix_num {
+    my ($name) = @_;
+    $name = '' unless defined $name;
+
+    return $1 if $name =~ /#\s*(\d+)\s*\z/;
+    return $1 if $name =~ /(\d+)\s*\z/;
+
+    return 0;
+}
+
+sub _enable_interface {
+    my ($name, $guid) = @_;
+
+    $guid = _normalize_guid($guid);
+
+    my @cmds;
+
+    if (length $guid) {
+        # Use WMI first because it targets the adapter by GUID and avoids
+        # parsing/localized adapter names such as Chinese "Local Area Connection".
+        push @cmds, qq(wmic path win32_networkadapter where "GUID='$guid'" call enable);
+    }
+
+    if (defined $name && length $name) {
+        push @cmds, qq(netsh interface set interface name="$name" admin=enabled);
+        push @cmds, qq(netsh interface set interface "$name" enabled);
+    }
+
+    for my $cmd (@cmds) {
+        _dbg("running: $cmd");
+        return 1 if _run_wait_tk($cmd, 15000);
+    }
+
+    return 0;
+}
+
+sub _rename_interface_by_guid {
+    my ($guid, $new_name) = @_;
+
+    $guid = _normalize_guid($guid);
+
+    return 0 unless length $guid;
+    return 0 unless defined $new_name && length $new_name;
+
+    _free_interface_name($new_name);
+
+    # Prefer WMI by GUID so localized Windows interface names do not have to be
+    # round-tripped through cmd.exe/netsh just to rename the TAP adapter.
+    my $cmd = qq(wmic path win32_networkadapter where "GUID='$guid'" set NetConnectionID="$new_name");
+    _dbg("running: $cmd");
+
+    return _run_wait_tk($cmd, 15000);
+}
+
 sub _rename_known_tap_if_needed {
     my (%args) = @_;
 
@@ -346,6 +542,7 @@ sub _rename_known_tap_if_needed {
     my $tap         = $args{tap};
     my $wanted_name = $args{wanted_name} || 'cryptostorm VPN';
     my $ovpn_exe    = $args{ovpn_exe} || 'openvpn.exe';
+    my $Registry    = $args{Registry};
     my $on_status   = $args{on_status} || sub {};
 
     return $tap unless ref($tap) eq 'HASH';
@@ -361,6 +558,7 @@ sub _rename_known_tap_if_needed {
         my @renamed = list_tap_adapters(
             state    => $state,
             ovpn_exe => $ovpn_exe,
+            Registry => $Registry,
         );
 
         for my $candidate (@renamed) {
@@ -572,19 +770,21 @@ sub list_tap_adapters {
     my (%args) = @_;
 
     my $state    = $args{state};
+    my $Registry = $args{Registry};
     my $require_windows_visible = exists $args{require_windows_visible}
         ? $args{require_windows_visible}
-        : 1;
+        : 0;
     my $ovpn_exe = $args{ovpn_exe}
         || ($state ? $state->{app}->{ovpn_exe} : undef)
         || 'openvpn.exe';
+
+    my @adapters;
+    my %by_guid;
 
     my $cmd = qq("$ovpn_exe" --show-adapters 2>&1);
     _dbg("running: $cmd");
 
     my @out = _capture_lines_hidden($cmd, 15000);
-
-    my @adapters;
 
     for my $line (@out) {
         chomp $line;
@@ -592,76 +792,165 @@ sub list_tap_adapters {
 
         _dbg("show-adapters: $line") if TAP_DEBUG;
 
+        my ($name, $guid, $driver);
+
         if ($line =~ /['"](.+?)['"]\s+\{([0-9A-Fa-f-]{36})\}\s*(\S+)?/) {
-            my $guid = uc($2);
-            $guid =~ s/[{}]//g;
-            my $driver = $3 // '';
-
-            if (!_is_tap_windows6_driver($driver)) {
-                _dbg("ignoring non-TAP OpenVPN adapter: $line");
-                next;
-            }
-
-            my $windows_visible = $require_windows_visible
-                ? _interface_visible_to_windows($1)
-                : 0;
-
-            my $adapter = {
-                name   => $1,
-                guid   => $guid,
-                driver => $driver,
-                raw    => $line,
-                windows_visible => $windows_visible,
-            };
-
-            if (!$require_windows_visible || $windows_visible) {
-                push @adapters, $adapter;
-            }
-            else {
-                _dbg("ignoring stale/non-visible TAP adapter: $line");
-            }
-            next;
+            ($name, $guid, $driver) = ($1, $2, $3 // '');
         }
-
-        # fallback
-        if ($line =~ /^(.+?)\s+\{([0-9A-Fa-f-]{36})\}\s*(\S+)?/) {
-            my $name = $1;
-            my $guid = uc($2);
-            my $driver = $3 // '';
-
+        elsif ($line =~ /^(.+?)\s+\{([0-9A-Fa-f-]{36})\}\s*(\S+)?/) {
+            ($name, $guid, $driver) = ($1, $2, $3 // '');
             $name =~ s/^\s+|\s+$//g;
-            $guid =~ s/[{}]//g;
-
-            if (!_is_tap_windows6_driver($driver)) {
-                _dbg("ignoring non-TAP OpenVPN adapter: $line");
-                next;
-            }
-
-            my $windows_visible = $require_windows_visible
-                ? _interface_visible_to_windows($name)
-                : 0;
-
-            my $adapter = {
-                name   => $name,
-                guid   => $guid,
-                driver => $driver,
-                raw    => $line,
-                windows_visible => $windows_visible,
-            };
-
-            if (!$require_windows_visible || $windows_visible) {
-                push @adapters, $adapter;
-            }
-            else {
-                _dbg("ignoring stale/non-visible TAP adapter: $line");
-            }
+        }
+        else {
             next;
         }
+
+        $guid = _normalize_guid($guid);
+
+        if (!_is_tap_windows6_driver($driver)) {
+            _dbg("ignoring non-TAP OpenVPN adapter: $line");
+            next;
+        }
+
+        my $adapter = {
+            name            => $name,
+            guid            => $guid,
+            driver          => $driver,
+            raw             => $line,
+            source          => 'openvpn',
+            openvpn_visible => 1,
+            windows_visible => 1,
+        };
+
+        _merge_tap_adapter(\@adapters, \%by_guid, $adapter);
     }
+
+    for my $adapter (_registry_tap_adapters($Registry)) {
+        _merge_tap_adapter(\@adapters, \%by_guid, $adapter);
+    }
+
+    if ($require_windows_visible) {
+        @adapters = grep {
+            my $name = $_->{name} // '';
+            $_->{openvpn_visible} || (length($name) && _interface_visible_to_windows($name));
+        } @adapters;
+    }
+
+    @adapters = sort {
+        ($b->{openvpn_visible} || 0) <=> ($a->{openvpn_visible} || 0)
+            || lc($a->{name} // '') cmp lc($b->{name} // '')
+            || _normalize_guid($a->{guid}) cmp _normalize_guid($b->{guid})
+    } @adapters;
 
     _dbg("adapter_count=" . scalar(@adapters));
 
     return @adapters;
+}
+
+sub _merge_tap_adapter {
+    my ($list_ref, $by_guid_ref, $adapter) = @_;
+
+    return unless ref($adapter) eq 'HASH';
+
+    my $guid = _normalize_guid($adapter->{guid});
+    return unless length $guid;
+
+    $adapter->{guid} = $guid;
+
+    if (exists $by_guid_ref->{$guid}) {
+        my $existing = $by_guid_ref->{$guid};
+
+        for my $key (qw(name driver raw)) {
+            if ((!defined($existing->{$key}) || $existing->{$key} eq '') && defined($adapter->{$key})) {
+                $existing->{$key} = $adapter->{$key};
+            }
+        }
+
+        $existing->{openvpn_visible} ||= $adapter->{openvpn_visible} ? 1 : 0;
+        $existing->{windows_visible} ||= $adapter->{windows_visible} ? 1 : 0;
+
+        my $source = $adapter->{source} // '';
+        if (length $source && ($existing->{source} // '') !~ /(?:^|\+)\Q$source\E(?:\+|\z)/) {
+            $existing->{source} = length($existing->{source} // '')
+                ? $existing->{source} . '+' . $source
+                : $source;
+        }
+
+        return;
+    }
+
+    $by_guid_ref->{$guid} = $adapter;
+    push @$list_ref, $adapter;
+}
+
+sub _registry_tap_adapters {
+    my ($Registry) = @_;
+
+    return () unless $Registry;
+    return () unless $^O =~ /MSWin32/i;
+
+    my $class_guid = '{4D36E972-E325-11CE-BFC1-08002BE10318}';
+    my $class_path = "HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/Control/Class/$class_guid/";
+
+    my $class = eval { $Registry->{$class_path} };
+    return () unless $class;
+
+    my @subkeys = eval { $class->SubKeyNames };
+    return () if $@;
+
+    my @adapters;
+
+    for my $sub (@subkeys) {
+        next unless defined $sub;
+        $sub =~ s/[\\\/]\z//;
+        next unless $sub =~ /^\d{4}$/;
+
+        my $base = $class_path . $sub . '/';
+
+        my $component = _reg_get_value($Registry, $base . 'ComponentId') // '';
+        my $matching  = _reg_get_value($Registry, $base . 'MatchingDeviceId') // '';
+        my $service   = _reg_get_value($Registry, $base . 'Service') // '';
+        my $desc      = _reg_get_value($Registry, $base . 'DriverDesc') // '';
+        my $provider  = _reg_get_value($Registry, $base . 'ProviderName') // '';
+        my $guid      = _reg_get_value($Registry, $base . 'NetCfgInstanceId') // '';
+
+        my $haystack = join(' ', $component, $matching, $service, $desc, $provider);
+
+        next unless $haystack =~ /tap0901|tap-windows|TAP-Windows\s+Adapter\s+V9/i;
+        next if $haystack =~ /wintun|ovpn-dco/i;
+
+        $guid = _normalize_guid($guid);
+        next unless length $guid;
+
+        my $guid_braced = '{' . $guid . '}';
+        my $conn_path = "HKEY_LOCAL_MACHINE/SYSTEM/CurrentControlSet/Control/Network/$class_guid/$guid_braced/Connection/";
+        my $name = _reg_get_value($Registry, $conn_path . 'Name') // '';
+        $name =~ s/^\s+|\s+$//g if defined $name;
+
+        push @adapters, {
+            name            => $name,
+            guid            => $guid,
+            driver          => 'tap-windows6',
+            raw             => "registry:$sub $desc $component $service",
+            source          => 'registry',
+            openvpn_visible => 0,
+            windows_visible => length($name) ? 1 : 0,
+        };
+    }
+
+    return @adapters;
+}
+
+sub _reg_get_value {
+    my ($Registry, $path) = @_;
+
+    return undef unless $Registry && defined $path && length $path;
+
+    my $value;
+    eval { $value = $Registry->{$path}; 1 } or return undef;
+    return undef if ref($value);
+
+    return $value;
 }
 
 

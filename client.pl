@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 our $VERSION;
 BEGIN {
-    $VERSION = "4.00";
+    $VERSION = "4.01";
 	# Set version-specific PAR cache folder to ensure updates don't run old code
     $ENV{PAR_GLOBAL_TEMP} = 1 unless defined $ENV{PAR_GLOBAL_TEMP};
     $ENV{PAR_CACHE_ID} = "cswidget_v${VERSION}" unless defined $ENV{PAR_CACHE_ID};
@@ -34,6 +34,7 @@ use Tkx::SplashScreen;
 use Win32::GUI;
 use Digest::SHA qw(sha512_hex);
 use File::Copy qw(copy);
+use Time::HiRes qw(time);
 use IO::Select;
 use IO::Socket;
 use Socket;
@@ -121,6 +122,7 @@ my $state = {
 		stop_world_spinner => 0,
 		upgrade => 0,
 		schedule_upgrade => 0,
+		upgrade_installer_path => '',
 		exit_btn_mode => 'exit' # exit | abort | disconnect
     },
 	
@@ -1381,7 +1383,17 @@ sub do_app_exit {
     eval { $ui->{mainwin}->{mw}->g_destroy() };
 
     if ($state->{runtime}->{schedule_upgrade}) {
-        system(1, "start cryptostorm_setup.exe");
+        my $installer = $state->{runtime}->{upgrade_installer_path} || '..\cryptostorm_setup.exe';
+
+        # client.exe runs from bin\, but the verified installer is
+        # copied to the install root (..\).  Launch that exact file instead of
+        # asking cmd.exe/start to look in the current bin directory.
+        if (-e $installer) {
+            system(1, 'cmd.exe /d /c start "" ' . _win_q($installer));
+        } else {
+            # Last-resort fallback for old state from a previous run.
+            system(1, 'cmd.exe /d /c start "" ' . _win_q('..\cryptostorm_setup.exe'));
+        }
     }
 
     Tkx::exit(0);
@@ -1526,16 +1538,72 @@ sub update_node_list {
     return 1;
 }
 
+sub autosize_options_window {
+    return unless $ui
+        && $ui->{opt_main}
+        && $ui->{opt_main}->{ow}
+        && $ui->{opt_main}->{tabs};
+
+    my $tabs = $ui->{opt_main}->{tabs};
+    return unless widget_exists($tabs);
+
+    my $min_tab_w = 465;
+    my $min_tab_h = 230;
+    my $tab_w     = $min_tab_w;
+    my $tab_h     = $min_tab_h;
+
+    eval { Tkx::update('idletasks'); 1 };
+
+    # Size the notebook from the largest tab frame instead of the old fixed
+    # 465x230 value.  The fixed value could clip the right-most controls in the
+    # Advanced tab, especially the stunnel/Xray SNI controls, on small Windows
+    # displays where Tk's requested size math differs slightly.
+    for my $idx (1 .. 4) {
+        my $frame = $ui->{opt_main}->{tab_frame}->{$idx};
+        next unless widget_exists($frame);
+
+        my $rw = eval { Tkx::winfo('reqwidth',  $frame) } || 0;
+        my $rh = eval { Tkx::winfo('reqheight', $frame) } || 0;
+
+        $tab_w = $rw if $rw > $tab_w;
+        $tab_h = $rh if $rh > $tab_h;
+    }
+
+    # Leave room for ttk::notebook padding/borders and the tab strip itself.
+    $tab_w += 44;
+    $tab_h += 56;
+
+    eval {
+        $tabs->configure(-width => $tab_w, -height => $tab_h);
+        Tkx::update('idletasks');
+        1;
+    };
+
+    return 1;
+}
+
 sub do_options {
  if ($state->{connect}->{save_token} eq "off") {
   $state->{startup}->{autoconnect} = "off";
  }
  $ui->{mainwin}->{mw}->g_wm_deiconify();
  $ui->{mainwin}->{mw}->g_wm_withdraw();
- my $width  ||= Tkx::winfo('reqwidth',  $ui->{opt_main}->{ow});
- my $height ||= Tkx::winfo('reqheight', $ui->{opt_main}->{ow});
- my $x = int((Tkx::winfo('screenwidth',  $ui->{opt_main}->{ow}) / 2) - ($width / 2));
- my $y = int((Tkx::winfo('screenheight', $ui->{opt_main}->{ow}) / 2) - ($height / 2));
+
+ # The Advanced tab is wider than the old hard-coded notebook size on some
+ # small/low-DPI Windows 7 systems.  Recalculate from the actual requested
+ # widget sizes every time Options is opened so stunnel/Xray controls are not
+ # clipped by the notebook/window geometry.
+ autosize_options_window();
+ Tkx::update('idletasks');
+
+ my $width  = Tkx::winfo('reqwidth',  $ui->{opt_main}->{ow});
+ my $height = Tkx::winfo('reqheight', $ui->{opt_main}->{ow});
+ my $screen_w = Tkx::winfo('screenwidth',  $ui->{opt_main}->{ow});
+ my $screen_h = Tkx::winfo('screenheight', $ui->{opt_main}->{ow});
+ my $x = int(($screen_w - $width) / 2);
+ my $y = int(($screen_h - $height) / 2);
+ $x = 0 if $x < 0;
+ $y = 0 if $y < 0;
  $ui->{opt_main}->{ow}->g_wm_geometry($width . "x" . $height . "+" . $x . "+" . $y);
  $ui->{opt_main}->{ow}->g_raise();
  $ui->{opt_main}->{ow}->g_wm_deiconify();
@@ -2200,40 +2268,55 @@ sub download_and_verify_update {
         timeout => 30,
     );
 
+    $state->{runtime}->{pbar} = 0;
+    $state->{runtime}->{pbar_target} = 0;
+    $state->{runtime}->{pbar_animating} = 0;
+
     for my $item (
-        [$file,       $exe_path],
-        ["$file.hash", $sig_path],
+        [$file,        $exe_path, 1],
+        ["$file.hash", $sig_path, 0],
     ) {
-        my ($remote_name, $local_path) = @$item;
+        my ($remote_name, $local_path, $show_progress_bar) = @$item;
         my $url = "$base_url/$remote_name";
 
-        $state->{runtime}->{status_text} = $L->{$lang}{TXT_DOWNLOADING_LATEST} . " $remote_name";
-        Tkx::update();
+        my ($ok, $err) = _download_update_file(
+            state             => $state,
+            ui                => $ui,
+            L                 => $L,
+            lang              => $lang,
+            http              => $http,
+            url               => $url,
+            remote_name       => $remote_name,
+            local_path        => $local_path,
+            show_progress_bar => $show_progress_bar,
+        );
 
-        my $res = $http->get($url);
-
-        if (!$res->{success}) {
+        if (!$ok) {
+            unlink $local_path if -e $local_path;
             $ui->{mainwin}->{exit_btn}->configure(-state => 'normal');
-            do_error($L->{$lang}{ERR_DOWNLOAD} . " $url: " . ($res->{status} || 0) . " " . ($res->{reason} || ''));
+            do_error($err);
             return 0;
         }
-
-        eval {
-            open my $fh, '>:raw', $local_path or die "$!";
-            print {$fh} ($res->{content} // '');
-            close $fh or die "$!";
-            1;
-        } or do {
-            $ui->{mainwin}->{exit_btn}->configure(-state => 'normal');
-            do_error($L->{$lang}{ERR_DOWNLOAD} . " $local_path: $@");
-            return 0;
-        };
     }
 
     my $ossl = $state->{app}->{ossl_exe} || 'openssl.exe';
 
-    my $verify_cmd = qq("$ossl" dgst -sha512 -verify widget.pub -signature "$sig_path" "$exe_path" 2>&1);
-    my $verify_out = `$verify_cmd`;
+    my $verify_cmd = qq("$ossl" dgst -sha512 -verify widget.pub -signature "$sig_path" "$exe_path");
+
+    my @spin = ('[|]', '[/]', '[-]', '[\\]');
+    my $spin_i = 0;
+    $state->{runtime}->{status_text} = ($L->{$lang}{ERR_VERIFY} || 'Verifying') . " - $file $spin[0]";
+    _ui_pump();
+
+    my ($verify_out, $verify_status) = _run_hidden_capture_cmd(
+        $verify_cmd,
+        timeout => 120,
+        tick_cb => sub {
+            my $spin = $spin[$spin_i++ % @spin];
+            $state->{runtime}->{status_text} = ($L->{$lang}{ERR_VERIFY} || 'Verifying') . " - $file $spin";
+        },
+    );
+    $verify_out = '' unless defined $verify_out;
 
     if ($verify_out !~ /Verified OK/) {
         unlink $exe_path if -e $exe_path;
@@ -2249,14 +2332,19 @@ sub download_and_verify_update {
     }
 
     $state->{runtime}->{status_text} = $L->{$lang}{TXT_DOWNLOAD_VERIFIED};
-    Tkx::update();
+    $state->{runtime}->{pbar} = 100;
+    _ui_pump();
 
-    copy($exe_path, "..\\$file")
+    my $installer_path = "..\\$file";
+
+    copy($exe_path, $installer_path)
         or do {
             $ui->{mainwin}->{exit_btn}->configure(-state => 'normal');
-            do_error("Failed to copy $exe_path to ..\\$file: $!");
+            do_error("Failed to copy $exe_path to $installer_path: $!");
             return 0;
         };
+
+    $state->{runtime}->{upgrade_installer_path} = $installer_path;
 
     unlink $exe_path if -e $exe_path;
     unlink $sig_path if -e $sig_path;
@@ -2265,6 +2353,116 @@ sub download_and_verify_update {
     $ui->{mainwin}->{exit_btn}->configure(-state => 'normal');
 
     return 1;
+}
+
+sub _download_update_file {
+    my (%args) = @_;
+
+    my $state       = $args{state} or die "missing state";
+    my $ui          = $args{ui}    or die "missing ui";
+    my $L           = $args{L}     or die "missing L";
+    my $lang        = $args{lang}  || ($state->{app}->{lang} || 'English');
+    my $http        = $args{http}  or die "missing http";
+    my $url         = $args{url}   or die "missing url";
+    my $remote_name = $args{remote_name} || $url;
+    my $local_path  = $args{local_path}  or die "missing local_path";
+
+    my $base_msg = ($L->{$lang}{TXT_DOWNLOADING_LATEST} || 'Downloading latest') . " $remote_name";
+    my @spin = ('[|]', '[/]', '[-]', '[\\]');
+    my $spin_i = 0;
+    my $downloaded = 0;
+    my $total = 0;
+    my $last_ui = 0;
+
+    my $fh;
+    if (!open $fh, '>:raw', $local_path) {
+        return (0, ($L->{$lang}{ERR_DOWNLOAD} || 'Download failed') . " $local_path: $!");
+    }
+
+    my $update_status = sub {
+        my ($force) = @_;
+        my $now = time;
+        return if !$force && (($now - $last_ui) < 0.08);
+        $last_ui = $now;
+
+        my $spin = $spin[$spin_i++ % @spin];
+        my $pct_text = '';
+
+        if ($total && $total > 0) {
+            my $pct = ($downloaded / $total) * 100;
+            $pct = 100 if $pct > 100;
+            $pct_text = sprintf(' %.2f%%', $pct);
+            if ($args{show_progress_bar}) {
+                $state->{runtime}->{pbar} = int($pct + 0.5);
+                $state->{runtime}->{pbar_target} = $state->{runtime}->{pbar};
+            }
+        } elsif ($downloaded) {
+            $pct_text = sprintf(' %d bytes', $downloaded);
+        }
+
+        $state->{runtime}->{status_text} = "$base_msg$pct_text $spin";
+        _ui_pump();
+    };
+
+    $update_status->(1);
+
+    my $write_error = '';
+    my $res = $http->request('GET', $url, {
+        data_callback => sub {
+            my ($chunk, $res) = @_;
+            return if length $write_error;
+
+            if (!$total && $res && $res->{headers}) {
+                my $cl = $res->{headers}{'content-length'};
+                $cl = $cl->[0] if ref($cl) eq 'ARRAY';
+                $total = $cl if defined($cl) && $cl =~ /^\d+$/;
+            }
+
+            my $ok = print {$fh} $chunk;
+            if (!$ok) {
+                $write_error = "$!";
+                return;
+            }
+
+            $downloaded += length($chunk);
+            $update_status->(0);
+        },
+    });
+
+    my $close_ok = close $fh;
+
+    if (length $write_error) {
+        unlink $local_path if -e $local_path;
+        return (0, ($L->{$lang}{ERR_DOWNLOAD} || 'Download failed') . " $local_path: $write_error");
+    }
+
+    if (!$close_ok) {
+        unlink $local_path if -e $local_path;
+        return (0, ($L->{$lang}{ERR_DOWNLOAD} || 'Download failed') . " $local_path: $!");
+    }
+
+    if (!$res || !$res->{success}) {
+        unlink $local_path if -e $local_path;
+        return (0, ($L->{$lang}{ERR_DOWNLOAD} || 'Download failed') . " $url: " . (($res && $res->{status}) || 0) . " " . (($res && $res->{reason}) || ''));
+    }
+
+    $downloaded = -s $local_path if -e $local_path;
+    $downloaded ||= 0;
+
+    if ($total && $downloaded < $total) {
+        unlink $local_path if -e $local_path;
+        return (0, ($L->{$lang}{ERR_DOWNLOAD} || 'Download failed') . " $url: incomplete download ($downloaded/$total bytes)");
+    }
+
+    if ($total && $args{show_progress_bar}) {
+        $state->{runtime}->{pbar} = 100;
+        $state->{runtime}->{pbar_target} = 100;
+    }
+
+    $state->{runtime}->{status_text} = "$base_msg 100.00%" if $total;
+    _ui_pump();
+
+    return (1, '');
 }
 
 sub power_event {
@@ -2557,9 +2755,11 @@ sub silent_tunnel_failure {
 sub _run_hidden_capture_cmd {
     my ($cmd, %opts) = @_;
     my $timeout = $opts{timeout} || 20;
+    my $tick_cb = $opts{tick_cb};
 
     # Non-Windows fallback keeps syntax/dev tests working.
     if ($^O !~ /MSWin32/i) {
+        eval { $tick_cb->() } if $tick_cb;
         my $out = `$cmd`;
         $out = '' unless defined $out;
         return ($out, $?);
@@ -2602,9 +2802,14 @@ sub _run_hidden_capture_cmd {
 
     my $deadline = time + $timeout;
     my $exit = 259;
+    my $tick_i = 0;
     while (1) {
         $proc->GetExitCode($exit);
         last if defined($exit) && $exit != 259;
+
+        if ($tick_cb && (($tick_i++ % 5) == 0)) {
+            eval { $tick_cb->(); 1 };
+        }
 
         _ui_pump();
 
@@ -3812,6 +4017,11 @@ sub refresh_ui_from_state {
         safe_configure($ui->{opt_connecting}->{port_entry}, -state => 'normal');
         safe_configure($ui->{opt_connecting}->{random_port_check}, -state => 'normal');
     }
+
+    # Transport toggles can add/remove the wider stunnel/Xray controls on the
+    # Advanced tab while Options is already open, so resize the notebook again
+    # after refreshing widget visibility/state.
+    autosize_options_window();
 
     # Main window status label refresh happens automatically through textvariable,
     # but forcing an update here helps during event bursts.
