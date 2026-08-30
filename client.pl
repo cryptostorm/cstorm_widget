@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 our $VERSION;
 BEGIN {
-    $VERSION = "4.01";
+    $VERSION = "4.02";
 	# Set version-specific PAR cache folder to ensure updates don't run old code
     $ENV{PAR_GLOBAL_TEMP} = 1 unless defined $ENV{PAR_GLOBAL_TEMP};
     $ENV{PAR_CACHE_ID} = "cswidget_v${VERSION}" unless defined $ENV{PAR_CACHE_ID};
