@@ -158,39 +158,6 @@ sub _canonical_tls_cipher {
     return 'secp521r1';
 }
 
-sub _selected_openvpn_proto {
-    my ($state) = @_;
-
-    my $proto = uc($state->{connect}->{proto} // 'UDP');
-    $proto =~ s/^\s+|\s+$//g;
-    $proto = 'UDP' unless $proto eq 'UDP' || $proto eq 'TCP';
-
-    my $xray_on = (($state->{transport}->{https_enabled} // 'off') eq 'on')
-               && (
-                      (($state->{transport}->{xray_enabled} // 'off') eq 'on')
-                   || (($state->{transport}->{https_mode} // '') eq 'xray')
-                  );
-
-    if ($xray_on) {
-        # Xray is a TCP REALITY outer transport, but the OpenVPN payload inside
-        # it may be either UDP or TCP.  Some UI paths temporarily force TCP for
-        # SOCKS/SSH/stunnel and older/stale state can leave proto=TCP even after
-        # switching back to Xray.  Capture the user-selected protocol at the top
-        # of Connect and use it here so the generated vpn.ovpn and Xray
-        # dokodemo-door network agree.
-        my $requested = uc($state->{runtime}->{requested_openvpn_proto_for_connect} // '');
-        $requested =~ s/^\s+|\s+$//g;
-        if ($requested eq 'UDP' || $requested eq 'TCP') {
-            $proto = $requested;
-        }
-        elsif ($proto eq 'TCP' && (($state->{connect}->{proto_before_forced_tcp} // '') eq 'UDP')) {
-            $proto = 'UDP';
-        }
-    }
-
-    return $proto;
-}
-
 sub _normalize_transport_state_for_connect {
     my ($state) = @_;
     return unless $state && ref($state) eq 'HASH';
@@ -201,18 +168,9 @@ sub _normalize_transport_state_for_connect {
 
     # stunnel/xray are sub-modes of the HTTPS tunnel checkbox.  Older config
     # files can have stunnel_enabled/xray_enabled left on while https_enabled
-    # is off, or can have https_mode=xray without xray_enabled being refreshed
-    # by the Options UI yet.  Derive the sub-mode from https_enabled+https_mode
-    # at connect time so config generation cannot drift.
-    my $https_mode = $state->{transport}->{https_mode} // 'stunnel';
-    $https_mode = 'stunnel' unless $https_mode =~ /^(?:stunnel|xray)$/;
-    $state->{transport}->{https_mode} = $https_mode;
-
-    if ($https_on) {
-        $state->{transport}->{stunnel_enabled} = ($https_mode eq 'stunnel') ? 'on' : 'off';
-        $state->{transport}->{xray_enabled}    = ($https_mode eq 'xray')    ? 'on' : 'off';
-    }
-    else {
+    # is off, which makes confgen point OpenVPN at 127.0.0.1 from a previous
+    # local tunnel run.  Treat HTTPS=off as authoritative.
+    if (!$https_on) {
         $state->{transport}->{stunnel_enabled} = 'off';
         $state->{transport}->{xray_enabled}    = 'off';
     }
@@ -292,21 +250,6 @@ sub _pid_is_alive {
     return kill(0, $pid) ? 1 : 0;
 }
 
-sub _process_image_running {
-    my ($image) = @_;
-    return 0 unless defined $image && length $image;
-
-    if ($^O =~ /MSWin32/i) {
-        my $out = `tasklist /FI "IMAGENAME eq $image" /NH 2>NUL`;
-        $out = '' unless defined $out;
-        return ($out =~ /^\s*\Q$image\E\b/im) ? 1 : 0;
-    }
-
-    my $out = `ps -eo comm 2>/dev/null`;
-    $out = '' unless defined $out;
-    return ($out =~ /^\s*\Q$image\E\s*$/m) ? 1 : 0;
-}
-
 sub _local_tcp_port_claimed {
     my ($port) = @_;
     return 0 unless defined $port && $port =~ /^\d+$/ && $port > 0;
@@ -366,44 +309,23 @@ sub _wait_helper_ready {
     my $attempt_id   = $args{attempt_id};
     my $port         = $args{port};
     my $pid          = $args{pid};
-    my $image        = $args{image} || '';
     my $timeout_ms   = $args{timeout_ms} || 15000;
     my $is_tunnel_up = $args{is_tunnel_up};
     my $log_ready_cb = $args{log_ready_cb};
 
-    delete $state->{runtime}->{last_helper_start_reason} if $state && ref($state) eq 'HASH';
-
     my $deadline = time + ($timeout_ms / 1000);
-    my $early_exit_after = time + (($args{early_exit_grace_ms} || 900) / 1000);
-
     while (time < $deadline) {
         return 0 unless _connect_attempt_alive($state, $attempt_id);
 
         return 1 if $log_ready_cb && $log_ready_cb->();
         return 1 if $is_tunnel_up && $is_tunnel_up->($port, 250) > 0;
 
-        my $pid_alive = _pid_is_alive($pid);
-
         # Some Windows builds/logging combinations can show a healthy local
         # helper listener before netstat has a stable LISTENING row.  If the
         # helper PID is alive and the freshly-randomized local TCP port is no
         # longer bindable, treat that as ready rather than killing a good helper
         # and reporting a false Unable-to-start error.
-        return 1 if $pid_alive && _local_tcp_port_claimed($port);
-
-        # But if the helper really did exit immediately and did not leave a
-        # listener behind, fail early so the UI shows the helper/log details
-        # instead of continuing until OpenVPN reports a vague localhost failure.
-        if (time >= $early_exit_after && !$pid_alive) {
-            my $image_alive = length($image) ? _process_image_running($image) : 0;
-            if (!$image_alive && !_local_tcp_port_claimed($port)) {
-                $state->{runtime}->{last_helper_start_reason} =
-                    (length($image) ? "$image exited" : 'helper exited') .
-                    ' before the local listener became ready'
-                    if $state && ref($state) eq 'HASH';
-                return 0;
-            }
-        }
+        return 1 if _pid_is_alive($pid) && _local_tcp_port_claimed($port);
 
         _ui_pump();
         select undef, undef, undef, 0.10;
@@ -506,28 +428,11 @@ sub do_connect {
 
     my $lang = $state->{app}->{lang};
 
-    my $requested_proto = uc($state->{connect}->{proto} // 'UDP');
-    $requested_proto =~ s/^\s+|\s+$//g;
-    $requested_proto = 'UDP' unless $requested_proto eq 'UDP' || $requested_proto eq 'TCP';
-    $state->{runtime}->{requested_openvpn_proto_for_connect} = $requested_proto;
-
     if ($clear_ipv6_block_rule && ref($clear_ipv6_block_rule) eq 'CODE') {
         $state->{runtime}->{clear_ipv6_block_rule_cb} = $clear_ipv6_block_rule;
     }
 
     _normalize_transport_state_for_connect($state);
-
-    if (($state->{connect}->{port} // '') =~ /^8443$/) {
-        my $xray_on = (($state->{transport}->{https_enabled} // 'off') eq 'on')
-                   && (($state->{transport}->{xray_enabled}    // 'off') eq 'on');
-        if (!$xray_on) {
-            my $msg = $L->{$lang}{ERR_PORT_8443_RESERVED}
-                   || 'Error: port 8443 is reserved for Xray';
-            $do_error->($msg);
-            return 0;
-        }
-        $state->{transport}->{sni_host} = 'cloudflare.com';
-    }
 
     my $mode_before_connect = $state->{runtime}->{exit_btn_mode} // 'exit';
     return 0 if $mode_before_connect =~ /^(?:preparing|abort|aborting|disconnecting)$/;
@@ -570,24 +475,17 @@ sub do_connect {
 
     $refresh_ui_from_state->($state, $ui);
 
-    if (($state->{security}->{killswitch_enabled} // 'off') ne 'on') {
-        if (($state->{security}->{no_ipv6} // 'off') eq 'on') {
-            if ($refresh_ipv6_block_rule_for_connect) {
-                $state->{runtime}->{status_text} = "Checking IPv6 leak rules...";
-                _ui_pump();
-                if (!$refresh_ipv6_block_rule_for_connect->()) {
-                    my $err = $state->{runtime}->{ipv6_block_rule_error} || 'No firewall error text was captured.';
-                    $do_error->("Unable to update the IPv6 leak block rule.
+    if ($refresh_ipv6_block_rule_for_connect
+        && (($state->{security}->{killswitch_enabled} // 'off') ne 'on')) {
+        $state->{runtime}->{status_text} = "Checking IPv6 leak rules...";
+        _ui_pump();
+        if (!$refresh_ipv6_block_rule_for_connect->()) {
+            my $err = $state->{runtime}->{ipv6_block_rule_error} || 'No firewall error text was captured.';
+            $do_error->("Unable to update the IPv6 leak block rule.
 
 " . $err);
-                    _reset_ui_disconnected_state($state, $ui, $L);
-                    return 0;
-                }
-            }
-        } elsif ($clear_ipv6_block_rule && ref($clear_ipv6_block_rule) eq 'CODE') {
-            # Disable IPv6 is off: keep IPv6 fully available and silently remove
-            # any stale standalone leak-block rules from a prior connection.
-            $clear_ipv6_block_rule->('connect-ipv6-allowed');
+            _reset_ui_disconnected_state($state, $ui, $L);
+            return 0;
         }
     }
 
@@ -959,40 +857,6 @@ sub watch_logbox {
 
     my $lang = $state->{app}->{lang};
 
-    if ((($state->{transport}->{https_enabled} // 'off') eq 'on')
-        && (($state->{transport}->{xray_enabled} // 'off') eq 'on')
-        && ($state->{runtime}->{xray_pid} // 0)
-        && !(($state->{runtime}->{stop} // 0))
-        && (($state->{runtime}->{exit_btn_mode} // '') !~ /^(?:aborting|disconnecting|exit)$/)
-        && !_pid_is_alive($state->{runtime}->{xray_pid})
-        && !_process_image_running('xray.exe')) {
-
-        my $err_log = $state->{app}->{program_files_dir} . "\\..\\user\\xray-error.log";
-        my $acc_log = $state->{app}->{program_files_dir} . "\\..\\user\\xray-access.log";
-        my $msg = $L->{$lang}{ERR_TUNNEL} || 'Unable to start tunnel';
-        $msg .= "\n\nTransport: Xray";
-        $msg .= "\nRemote: " . ($state->{runtime}->{local_tunnel_remote_addr} // $state->{connect}->{remote_addr} // '') . ':' . ($state->{runtime}->{local_tunnel_remote_port} // $state->{connect}->{port} // '')
-            if (($state->{runtime}->{local_tunnel_remote_addr} // $state->{connect}->{remote_addr} // '') ne '');
-        $msg .= "\nSNI: " . ($state->{transport}->{sni_host} // '')
-            if length($state->{transport}->{sni_host} // '');
-        $msg .= "\nOpenVPN proto: " . ($state->{runtime}->{effective_openvpn_proto_for_connect} // $state->{connect}->{proto} // '');
-        $msg .= "\nXray inbound network: " . ($state->{runtime}->{effective_xray_dokodemo_network} // '');
-
-        my $err_tail = _tail_file($err_log, 4000);
-        my $acc_tail = _tail_file($acc_log, 2000);
-        $msg .= "\n\nxray error log:\n$err_tail" if length $err_tail;
-        $msg .= "\n\nxray access log:\n$acc_tail" if length $acc_tail;
-
-        $append_log_line->($ui, $msg, 'badline');
-        _reset_ui_disconnected_state($state, $ui, $L);
-        $do_error->($msg);
-        $shutdown_openvpn->();
-        alarm(0);
-        close($state->{runtime}->{VPNfh}) if $state->{runtime}->{VPNfh};
-        $state->{runtime}->{stop} = 1;
-        return -1;
-    }
-
     my $processed = 0;
     my $max_lines_per_tick = 25;
 
@@ -1258,14 +1122,6 @@ sub _reset_ui_disconnected_state {
 sub _set_pbar_target {
     my ($state, $ui, $target) = @_;
 
-    my $mode = $state->{runtime}->{exit_btn_mode} // '';
-    if (($state->{runtime}->{stop} // 0) || $mode =~ /^(?:aborting|disconnecting|exit)$/) {
-        $state->{runtime}->{pbar} = 0 if $mode =~ /^(?:aborting|disconnecting|exit)$/;
-        $state->{runtime}->{pbar_target} = 0;
-        $state->{runtime}->{pbar_animating} = 0;
-        return;
-    }
-
     $target = 0   if !defined($target) || $target < 0;
     $target = 100 if $target > 100;
 
@@ -1288,14 +1144,6 @@ sub _set_pbar_target {
 
 sub _animate_pbar {
     my ($state, $ui) = @_;
-
-    my $mode = $state->{runtime}->{exit_btn_mode} // '';
-    if (($state->{runtime}->{stop} // 0) || $mode =~ /^(?:aborting|disconnecting|exit)$/) {
-        $state->{runtime}->{pbar} = 0 if $mode =~ /^(?:aborting|disconnecting|exit)$/;
-        $state->{runtime}->{pbar_target} = 0;
-        $state->{runtime}->{pbar_animating} = 0;
-        return;
-    }
 
     my $current = $state->{runtime}->{pbar} // 0;
     my $target  = $state->{runtime}->{pbar_target} // $current;
@@ -1447,10 +1295,7 @@ sub write_openvpn_config {
 
     my $remote_is_ipv6 = ($remote_addr =~ /:/) ? 1 : 0;
 
-    my $selected_proto = _selected_openvpn_proto($state);
-    $state->{runtime}->{effective_openvpn_proto_for_connect} = $selected_proto;
-
-    if ($selected_proto eq 'UDP') {
+    if (($state->{connect}->{proto} // 'UDP') eq 'UDP') {
         my $proto = 'udp';
         $proto = 'udp4' if (($state->{security}->{no_ipv6} // 'off') eq 'on');
 
@@ -1714,7 +1559,6 @@ sub write_stunnel_config {
         attempt_id   => $attempt_id,
         port         => $local_port,
         pid          => $stunnel_pid,
-        image        => 'cs-https-tun.exe',
         timeout_ms   => 15000,
         is_tunnel_up => $is_tunnel_up,
         log_ready_cb => sub { _stunnel_log_says_ready($local_port, $stunnel_log) },
@@ -1738,8 +1582,6 @@ sub write_stunnel_config {
         $msg .= "\n\nTransport: stunnel";
         $msg .= "\nLocal port: $local_port" if $local_port;
         $msg .= "\nRemote: $connect_host:$remote_port";
-        $msg .= "\nReason: $state->{runtime}->{last_helper_start_reason}"
-            if length($state->{runtime}->{last_helper_start_reason} // '');
         my $tail = _tail_file($stunnel_log, 4000);
         my $netstat = _netstat_for_port($local_port);
         $msg .= "\n\nstunnel log:\n$tail" if length $tail;
@@ -1785,9 +1627,7 @@ sub write_xray_config {
     }
     die "write_xray_config: IPv6 remote selected while Disable IPv6 is on"
         if (($state->{security}->{no_ipv6} // 'off') eq 'on') && $remote_addr =~ /:/;
-    my $remote_port = defined($args{remote_port}) ? $args{remote_port} : $state->{connect}->{port};
-    die "write_xray_config: missing remote_port"
-        unless defined($remote_port) && $remote_port =~ /^\d+$/ && $remote_port >= 1 && $remote_port <= 65535;
+    my $remote_port = $args{remote_port} || $state->{connect}->{port} || 443;
 
     my $xray_path = $args{xray_path} || '..\\user\\xray-config.json';
     my $xray_exe  = $args{xray_exe}  || 'xray.exe';
@@ -1795,13 +1635,6 @@ sub write_xray_config {
     my $xray_access_log = $args{xray_access_log} || $state->{app}->{program_files_dir} . "\\..\\user\\xray-access.log";
 
     my $sni = lc($state->{transport}->{sni_host} || '');
-    if ($remote_port == 8443) {
-        # Server-side 8443 bypasses the HAProxy frontend and maps only to the
-        # Cloudflare REALITY inbound, so never let stale UI/config state generate
-        # a non-Cloudflare SNI for this port.
-        $sni = 'cloudflare.com';
-        $state->{transport}->{sni_host} = $sni;
-    }
     my $sni_cfg = $state->{transport}->{xray_snis}->{$sni}
         or die "write_xray_config: unknown Xray SNI '$sni'";
 
@@ -1846,8 +1679,7 @@ sub write_xray_config {
     $state->{runtime}->{local_tunnel_remote_ipv4} = $state->{connect}->{remote_ipv4} // '';
     $state->{runtime}->{local_tunnel_remote_ipv6} = $state->{connect}->{remote_ipv6} // '';
 
-    my $network = lc(_selected_openvpn_proto($state));
-    $state->{runtime}->{effective_xray_dokodemo_network} = $network;
+    my $network = 'tcp,udp';
 
     unlink $xray_error_log  if -e $xray_error_log;
     unlink $xray_access_log if -e $xray_access_log;
@@ -1951,7 +1783,6 @@ sub write_xray_config {
         attempt_id   => $attempt_id,
         port         => $local_port,
         pid          => $xray_pid,
-        image        => 'xray.exe',
         timeout_ms   => 15000,
         is_tunnel_up => $is_tunnel_up,
         log_ready_cb => sub { _xray_log_says_ready($local_port, $xray_error_log, $xray_access_log) },
@@ -1976,8 +1807,6 @@ sub write_xray_config {
         $msg .= "\nLocal port: $local_port" if $local_port;
         $msg .= "\nRemote: $remote_addr:$remote_port";
         $msg .= "\nSNI: $sni" if defined $sni && length $sni;
-        $msg .= "\nReason: $state->{runtime}->{last_helper_start_reason}"
-            if length($state->{runtime}->{last_helper_start_reason} // '');
         my $err_tail = _tail_file($xray_error_log, 4000);
         my $acc_tail = _tail_file($xray_access_log, 2000);
         my $netstat = _netstat_for_port($local_port);

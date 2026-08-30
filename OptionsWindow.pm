@@ -63,9 +63,6 @@ $ui->{opt_connecting}->{port_lbl} = $ui->{opt_main}->{tab_frame}->{2}->new_ttk__
 $ui->{opt_connecting}->{port_lbl}->g_pack(qw/-anchor n/);
 $ui->{opt_connecting}->{port_entry} = $ui->{opt_main}->{tab_frame}->{2}->new_ttk__entry(-textvariable => \$state->{connect}->{port}, -width => 6, -state => "normal");
 $ui->{opt_connecting}->{port_entry}->g_pack();
-$ui->{opt_connecting}->{port_entry}->g_bind('<FocusOut>', sub {
-    $refresh_ui_from_state->($state, $ui) if $refresh_ui_from_state;
-});
 $ui->{opt_connecting}->{proto_lbl} = $ui->{opt_main}->{tab_frame}->{2}->new_ttk__label(-text => $L->{$lang}{TXT_CONNECT_PROTOCOL});
 $ui->{opt_connecting}->{proto_lbl}->g_pack();
 
@@ -169,26 +166,10 @@ $ui->{opt_advanced}->{xray_radio} = $ui->{opt_main}->{tab_frame}->{4}->new_ttk__
         refresh => $refresh_ui_from_state); },
 );
 
-my @tunnel_names = grep { defined $_ && !ref($_) && length $_ }
-                   map  { ref($_) eq 'HASH' ? ($_->{name} // '') : '' }
-                   @$servers;
-
-my %valid_tunnel_name = map { $_ => 1 } @tunnel_names;
-my $selected_ssh_tunnel = $state->{transport}->{ssh_tunnel};
-if (ref($selected_ssh_tunnel) eq 'HASH' && defined $selected_ssh_tunnel->{name}) {
-    $selected_ssh_tunnel = $selected_ssh_tunnel->{name};
+my @tunnel_names = map { $_->{name} } @$servers;
+if (!defined $state->{transport}->{ssh_tunnel} || !length $state->{transport}->{ssh_tunnel}) {
+    $state->{transport}->{ssh_tunnel} = $tunnel_names[0] if @tunnel_names;
 }
-elsif (ref($selected_ssh_tunnel)) {
-    $selected_ssh_tunnel = '';
-}
-$selected_ssh_tunnel = '' unless defined $selected_ssh_tunnel;
-$selected_ssh_tunnel =~ s/^\s+|\s+$//g;
-$selected_ssh_tunnel = '' if $selected_ssh_tunnel =~ /^HASH\(0x[0-9a-f]+\)$/i;
-
-if (!length($selected_ssh_tunnel) || !$valid_tunnel_name{$selected_ssh_tunnel}) {
-    $selected_ssh_tunnel = @tunnel_names ? $tunnel_names[0] : '';
-}
-$state->{transport}->{ssh_tunnel} = $selected_ssh_tunnel;
 
 $ui->{opt_advanced}->{ssh_tunnel_combo} = $ui->{opt_main}->{tab_frame}->{4}->new_ttk__combobox(
     -textvariable => \$state->{transport}->{ssh_tunnel},

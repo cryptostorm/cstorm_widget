@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 our $VERSION;
 BEGIN {
-    $VERSION = "4.02";
+    $VERSION = "4.03";
 	# Set version-specific PAR cache folder to ensure updates don't run old code
     $ENV{PAR_GLOBAL_TEMP} = 1 unless defined $ENV{PAR_GLOBAL_TEMP};
     $ENV{PAR_CACHE_ID} = "cswidget_v${VERSION}" unless defined $ENV{PAR_CACHE_ID};
@@ -163,7 +163,7 @@ my $state = {
         socks_user => '',
         socks_pass => '',
         ssh_enabled => "off",
-		ssh_tunnel => '',
+		ssh_tunnel => {},
 		ssh_hostkey => "",
 		https_enabled => "off",
 		https_mode => "stunnel",
@@ -926,9 +926,6 @@ sub do_abort_connect {
     $state->{runtime}->{exit_btn_mode} = 'aborting';
     $state->{runtime}->{stop}          = 1;
     $state->{runtime}->{pbar}          = 0;
-    $state->{runtime}->{pbar_target}   = 0;
-    $state->{runtime}->{pbar_animating}= 0;
-    $state->{runtime}->{pbar_seen}     = {};
 	stop_world_icon_spinner($state, $ui, 'mainicon');
 
     @{ $state->{runtime}->{log_lines} } = ();
@@ -951,9 +948,6 @@ sub _do_abort_connect_work {
 
     $state->{runtime}->{stop} = 1;
     $state->{runtime}->{pbar} = 0;
-    $state->{runtime}->{pbar_target} = 0;
-    $state->{runtime}->{pbar_animating} = 0;
-    $state->{runtime}->{pbar_seen} = {};
 
     shutdown_openvpn_fast();
     cleanup_ipv6_routes_for_vpn();
@@ -1380,23 +1374,30 @@ sub do_app_exit {
     cleanup_tap_ipv6_addresses();
     clear_ipv6_block_rule('app-exit') if (($state->{security}->{killswitch_enabled} // 'off') eq 'off');
 
-    eval { $ui->{mainwin}->{mw}->g_destroy() };
-
+    # If an update is scheduled, start only a detached waiter here.  Do not
+    # start Inno Setup directly: at this point the Tk window can be destroyed
+    # while this Perl/PAR process is still alive and still releasing files.
+    # The waiter has no inherited handles, waits for our PID to disappear,
+    # gives Windows a short extra grace period, and only then starts the
+    # verified installer copy from %TEMP%.
     if ($state->{runtime}->{schedule_upgrade}) {
-        my $installer = $state->{runtime}->{upgrade_installer_path} || '..\cryptostorm_setup.exe';
+        my $installer = $state->{runtime}->{upgrade_installer_path} || '';
 
-        # client.exe runs from bin\, but the verified installer is
-        # copied to the install root (..\).  Launch that exact file instead of
-        # asking cmd.exe/start to look in the current bin directory.
-        if (-e $installer) {
-            system(1, 'cmd.exe /d /c start "" ' . _win_q($installer));
-        } else {
-            # Last-resort fallback for old state from a previous run.
-            system(1, 'cmd.exe /d /c start "" ' . _win_q('..\cryptostorm_setup.exe'));
+        if (!$installer || !-e $installer || !_launch_upgrade_installer_after_exit($installer)) {
+            my $root_installer = '..\cryptostorm_setup.exe';
+            do_error(
+                "Could not schedule the Cryptostorm installer to start after the client exits.\n\n" .
+                (-e $root_installer
+                    ? "Please run $root_installer manually."
+                    : "Please download and run cryptostorm_setup.exe manually.")
+            );
         }
     }
 
+    eval { $ui->{mainwin}->{mw}->g_destroy() };
+
     Tkx::exit(0);
+    CORE::exit(0);
 }
 
 sub shutdown_openvpn {
@@ -1588,7 +1589,6 @@ sub do_options {
  }
  $ui->{mainwin}->{mw}->g_wm_deiconify();
  $ui->{mainwin}->{mw}->g_wm_withdraw();
-
  # The Advanced tab is wider than the old hard-coded notebook size on some
  # small/low-DPI Windows 7 systems.  Recalculate from the actual requested
  # widget sizes every time Options is opened so stunnel/Xray controls are not
@@ -1668,16 +1668,9 @@ sub _validate_options_before_back {
         return 0;
     }
 
-    if ($state->{connect}->{port} == 8443) {
-        my $xray_on = (($state->{transport}->{https_enabled} // 'off') eq 'on')
-                   && (($state->{transport}->{https_mode}    // 'stunnel') eq 'xray');
-
-        if (!$xray_on) {
-            do_error($L->{$lang}{ERR_PORT_8443_RESERVED});
-            return 0;
-        }
-
-        $state->{transport}->{sni_host} = xray_fastpath_sni();
+    if ($state->{connect}->{port} == 8443 && $state->{transport}->{xray_enabled} eq 'off') {
+        do_error($L->{$lang}{ERR_PORT_8443_RESERVED});
+        return 0;
     }
 
     return 1;
@@ -1776,12 +1769,25 @@ sub _killswitch_endpoint_signature {
 sub _standalone_ipv6_block_needed_for_connect {
     return 0 if (($state->{security}->{killswitch_enabled} // 'off') eq 'on');
 
-    # Keep this rule tied strictly to the user's Disable IPv6 setting.  Earlier
-    # builds also tried to infer IPv4-only/no-route paths here, but a bad guess
-    # can block a legitimate IPv6 VPN endpoint before OpenVPN even starts.  When
-    # Disable IPv6 is off, IPv6 must stay allowed and any stale standalone rule
-    # is cleared by the Connect path.
-    return (($state->{security}->{no_ipv6} // 'off') eq 'on') ? 1 : 0;
+    my $disable_ipv6 = (($state->{security}->{no_ipv6} // 'off') eq 'on');
+    my $using_local_tunnel =
+           (($state->{transport}->{ssh_enabled}     // 'off') eq 'on')
+        || (($state->{transport}->{stunnel_enabled} // 'off') eq 'on')
+        || (($state->{transport}->{xray_enabled}    // 'off') eq 'on');
+
+    # Disable IPv6 must mean no outside IPv6, even without the full killswitch.
+    # This is especially important for SSH/stunnel/Xray because Disable IPv6
+    # makes those helpers use an IPv4 remote endpoint; any remaining system IPv6
+    # default route would otherwise leak outside the VPN.
+    return 1 if $disable_ipv6;
+
+    my $has_ipv6_route = host_has_usable_ipv6_route($state, ignore_disable_ipv6 => 1);
+    return 1 unless $has_ipv6_route;
+
+    my $remote = $state->{connect}->{remote_addr} // '';
+    return 1 if length($remote) && $remote !~ /:/ && !$using_local_tunnel;
+
+    return 0;
 }
 
 sub _standalone_ipv6_block_signature_for_connect {
@@ -2335,16 +2341,42 @@ sub download_and_verify_update {
     $state->{runtime}->{pbar} = 100;
     _ui_pump();
 
-    my $installer_path = "..\\$file";
+    # Keep the traditional install-root copy so a user can still launch the
+    # already-verified installer manually if needed.  Auto-upgrade deliberately
+    # does NOT execute this copy: running Setup from inside {app} can make the
+    # setup process itself participate in file-in-use/replacement checks.
+    my $root_installer_path = "..\\$file";
 
-    copy($exe_path, $installer_path)
+    copy($exe_path, $root_installer_path)
         or do {
             $ui->{mainwin}->{exit_btn}->configure(-state => 'normal');
-            do_error("Failed to copy $exe_path to $installer_path: $!");
+            do_error("Failed to copy $exe_path to $root_installer_path: $!");
             return 0;
         };
 
-    $state->{runtime}->{upgrade_installer_path} = $installer_path;
+    # Make a unique launch copy outside the application directory.  do_app_exit
+    # starts a hidden waiter which launches this file only after client.exe is
+    # completely gone, eliminating the updater-vs-old-process shutdown race.
+    my $launch_dir = $ENV{TEMP} || $ENV{TMP} || '';
+    $launch_dir =~ s/[\\\/]\z//;
+
+    if (!$launch_dir || !-d $launch_dir) {
+        $ui->{mainwin}->{exit_btn}->configure(-state => 'normal');
+        do_error("Could not find a usable Windows TEMP directory for the updater.");
+        return 0;
+    }
+
+    my $launch_stamp = $$ . '_' . int(time * 1000) . '_' . int(rand(100000));
+    my $launch_installer_path = "$launch_dir\\cryptostorm_setup_$launch_stamp.exe";
+
+    copy($exe_path, $launch_installer_path)
+        or do {
+            $ui->{mainwin}->{exit_btn}->configure(-state => 'normal');
+            do_error("Failed to copy $exe_path to $launch_installer_path: $!");
+            return 0;
+        };
+
+    $state->{runtime}->{upgrade_installer_path} = $launch_installer_path;
 
     unlink $exe_path if -e $exe_path;
     unlink $sig_path if -e $sig_path;
@@ -2842,36 +2874,6 @@ sub _run_taskkill_wait {
     my $timeout = $opts{timeout} || 5;
     my ($out, $status) = _run_hidden_capture_cmd($cmd, timeout => $timeout);
     return ($out, $status);
-}
-
-sub _process_image_running {
-    my ($image) = @_;
-    return 0 unless defined $image && length $image;
-
-    if ($^O =~ /MSWin32/i) {
-        my ($out, $status) = _run_hidden_capture_cmd(qq{tasklist /FI "IMAGENAME eq $image" /NH}, timeout => 4);
-        $out = '' unless defined $out;
-        return ($out =~ /^\s*\Q$image\E\b/im) ? 1 : 0;
-    }
-
-    # Development/test fallback.  Windows is the only runtime target, but this
-    # keeps syntax/dev checks from depending on tasklist.
-    my $out = `ps -eo comm 2>/dev/null`;
-    $out = '' unless defined $out;
-    return ($out =~ /^\s*\Q$image\E\s*$/m) ? 1 : 0;
-}
-
-sub _pid_is_alive {
-    my ($pid) = @_;
-    return 0 unless defined $pid && $pid =~ /^\d+$/ && $pid > 0;
-
-    if ($^O =~ /MSWin32/i) {
-        my ($out, $status) = _run_hidden_capture_cmd(qq{tasklist /FI "PID eq $pid" /NH}, timeout => 4);
-        $out = '' unless defined $out;
-        return ($out =~ /\b\Q$pid\E\b/) ? 1 : 0;
-    }
-
-    return kill(0, $pid) ? 1 : 0;
 }
 
 sub _run_netsh_cmd {
@@ -3372,20 +3374,7 @@ sub tls_cipher_fixed_port {
 sub tls_profile_reserved_port {
     my ($port) = @_;
     return 0 unless defined $port && $port =~ /^\d+$/;
-    # These ports select specific non-default OpenVPN TLS profiles.  Port 8443
-    # is different: it is reserved for the Xray fast path and should not be
-    # silently rewritten to 443.  Let validation report the proper Xray-only
-    # error when Xray is off, and let Xray lock its SNI when 8443 is selected.
-    return $port == 5061 || $port == 5062 || $port == 5063;
-}
-
-sub xray_fastpath_port {
-    my ($port) = @_;
-    return defined($port) && $port =~ /^\d+$/ && $port == 8443;
-}
-
-sub xray_fastpath_sni {
-    return 'cloudflare.com';
+    return $port == 5061 || $port == 5062 || $port == 5063 || $port == 8443;
 }
 
 sub tls_default_secp_port {
@@ -3938,23 +3927,6 @@ sub refresh_ui_from_state {
         elsif ($xray) {
             safe_grid_remove($ui->{opt_advanced}->{sni_entry});
             safe_grid($ui->{opt_advanced}->{xray_sni_combo}, -column => 1, -row => 9);
-
-            my @xray_snis = @{ $state->{transport}->{xray_snis_order} || [] };
-            if (xray_fastpath_port($state->{connect}->{port})) {
-                $state->{transport}->{sni_host} = xray_fastpath_sni();
-                safe_configure(
-                    $ui->{opt_advanced}->{xray_sni_combo},
-                    -values => [ xray_fastpath_sni() ],
-                    -state  => 'disabled',
-                );
-            }
-            else {
-                safe_configure(
-                    $ui->{opt_advanced}->{xray_sni_combo},
-                    -values => \@xray_snis,
-                    -state  => 'readonly',
-                );
-            }
         }
     }
     elsif ($ssh) {
@@ -3966,7 +3938,6 @@ sub refresh_ui_from_state {
         safe_configure($ui->{opt_advanced}->{tunnel_lbl}, -state => 'normal', -text => 'Tunnel host:');
         safe_grid($ui->{opt_advanced}->{ssh_tunnel_combo}, -column => 1, -row => 9);
         safe_configure($ui->{opt_advanced}->{ssh_tunnel_combo}, -state => 'readonly');
-        safe_configure($ui->{opt_advanced}->{xray_sni_combo}, -state => 'readonly');
     }
     else {
         safe_grid_remove($ui->{opt_advanced}->{stunnel_radio});
@@ -3977,7 +3948,6 @@ sub refresh_ui_from_state {
         safe_configure($ui->{opt_advanced}->{tunnel_lbl}, -state => 'disabled', -text => 'Tunnel host:');
         safe_grid($ui->{opt_advanced}->{ssh_tunnel_combo}, -column => 1, -row => 9);
         safe_configure($ui->{opt_advanced}->{ssh_tunnel_combo}, -state => 'disabled');
-        safe_configure($ui->{opt_advanced}->{xray_sni_combo}, -state => 'readonly');
     }
 
     safe_configure(
@@ -4004,13 +3974,13 @@ sub refresh_ui_from_state {
     else {
         if (($state->{connect}->{random_port} // 'off') eq 'on') {
             my $p = int(rand(65534) + 1);
-            while (tls_profile_reserved_port($p) || xray_fastpath_port($p)) {
+            while (tls_profile_reserved_port($p)) {
                 $p = int(rand(65534) + 1);
             }
             $state->{connect}->{port} = $p;
         }
         elsif (($state->{connect}->{port} // '') !~ /^\d+$/
-            || (!$xray && $tls eq 'secp521r1' && tls_profile_reserved_port($state->{connect}->{port}))) {
+            || ($tls eq 'secp521r1' && tls_profile_reserved_port($state->{connect}->{port}))) {
             $state->{connect}->{port} = tls_default_secp_port();
         }
 
@@ -4112,11 +4082,6 @@ sub normalize_sni_for_https_mode {
     my $host = $state->{transport}->{sni_host} // '';
 
     if ($mode eq 'xray') {
-        if (xray_fastpath_port($state->{connect}->{port})) {
-            $state->{transport}->{sni_host} = xray_fastpath_sni();
-            return;
-        }
-
         unless (is_xray_sni($state, $host)) {
             my $first_sni = $state->{transport}->{xray_snis_order}->[0];
             $state->{transport}->{sni_host} = $first_sni if defined $first_sni;
@@ -4887,7 +4852,6 @@ sub start_ssh_tunnel {
     my $ready = 0;
     my $fatal = '';
     my $deadline = time + 20;
-    my $early_exit_after = time + 1.25;
 
     while (time < $deadline) {
         if (!connect_attempt_alive($attempt_id)) {
@@ -4912,20 +4876,11 @@ sub start_ssh_tunnel {
             last;
         }
 
-        # Do not treat the cmd.exe launcher PID exiting as fatal by itself.
-        # On some Windows builds system(1, cmd.exe /c ...) can report the wrapper
-        # as gone while plink is still starting.  After a short grace period,
-        # though, if neither the wrapper nor cs-ssh-tun.exe is present and no
-        # listener/log-ready signal appeared, fail early with the captured log.
-        if (time >= $early_exit_after
-            && !$ready
-            && !$fatal
-            && $state->{runtime}->{ssh_pid}
-            && !_pid_is_alive($state->{runtime}->{ssh_pid})
-            && !_process_image_running('cs-ssh-tun.exe')) {
-            $fatal = 'SSH helper exited before the local SOCKS listener became ready';
-            last;
-        }
+        # Do not treat the launcher PID exiting as fatal by itself.  On some
+        # Windows builds system(1, cmd.exe /c ...) can report the wrapper as gone
+        # while plink is still starting or while Windows is still creating the
+        # SOCKS listener.  The log parser above catches real plink failures;
+        # otherwise wait out the readiness window and include log/netstat details.
 
         _ui_pump();
         select undef, undef, undef, 0.10;
@@ -4949,7 +4904,7 @@ sub start_ssh_tunnel {
             print STDERR "[SSH] output:\n$txt\n" if length $txt;
         }
 
-        if ($state->{runtime}->{ssh_pid} && _pid_is_alive($state->{runtime}->{ssh_pid})) {
+        if ($state->{runtime}->{ssh_pid} && kill(0, $state->{runtime}->{ssh_pid})) {
             _run_taskkill_wait("taskkill /F /T /PID $state->{runtime}->{ssh_pid} >NUL 2>NUL", timeout => 5);
         }
 
@@ -5108,35 +5063,7 @@ sub _resolve_ssh_tunnel_target {
     $servers ||= [];
 
     my $selected = $state->{transport}->{ssh_tunnel};
-
-    # Older builds initialized ssh_tunnel as a hashref.  On some 32-bit Perl/Tkx
-    # builds that reference leaked through the combobox textvariable and plink
-    # tried to resolve a literal "HASH(0x...)" host.  Treat both a real ref and
-    # a previously-saved stringified ref as "no selection" and fall back to the
-    # first SSH-capable node.
-    if (ref($selected) eq 'HASH' && defined $selected->{name}) {
-        $selected = $selected->{name};
-    }
-    elsif (ref($selected)) {
-        $selected = '';
-    }
-
-    $selected = '' unless defined $selected;
-    $selected =~ s/^\s+|\s+$//g;
-    $selected = '' if $selected =~ /^HASH\(0x[0-9a-f]+\)$/i;
-
-    if (!length $selected) {
-        for my $s (@$servers) {
-            next unless ref($s) eq 'HASH';
-            next unless defined $s->{name} && length $s->{name};
-            next unless defined $s->{ssh_hostkey} && length $s->{ssh_hostkey};
-            $selected = $s->{name};
-            $state->{transport}->{ssh_tunnel} = $selected;
-            last;
-        }
-    }
-
-    return unless length $selected;
+    return unless defined $selected && length $selected;
 
     my $can_ipv4 = host_has_usable_ipv4_route();
     my $has_ipv6_route = host_has_usable_ipv6_route($state, ignore_disable_ipv6 => 1);
@@ -5527,6 +5454,81 @@ sub mark_openvpn_connected {
             );
         });
     });
+
+    return 1;
+}
+
+sub _launch_upgrade_installer_after_exit {
+    my ($installer) = @_;
+
+    return 0 unless defined $installer && length $installer && -e $installer;
+    return 0 unless $^O =~ /MSWin32/i;
+
+    my $tmp = $ENV{TEMP} || $ENV{TMP} || '';
+    $tmp =~ s/[\\\/]\z//;
+    return 0 unless $tmp && -d $tmp;
+
+    my $comspec = $ENV{ComSpec} || (($ENV{SystemRoot} || 'C:\\Windows') . '\\System32\\cmd.exe');
+    return 0 unless -e $comspec;
+
+    # The installer generated by download_and_verify_update() has a controlled
+    # basename in this same temp directory.  Deriving it from %~dp0 in the
+    # batch file avoids embedding an arbitrary TEMP path in a command line.
+    my ($installer_name) = $installer =~ /([^\\\/]+)\z/;
+    return 0 unless defined $installer_name && $installer_name =~ /^cryptostorm_setup_[A-Za-z0-9_.-]+\.exe\z/i;
+
+    # The auto-launch path must actually be the file in this TEMP directory,
+    # not merely another file with an acceptable basename.
+    my $installer_abs = Win32::AbsPath::Fix($installer) || $installer;
+    my $expected_abs  = Win32::AbsPath::Fix("$tmp\\$installer_name") || "$tmp\\$installer_name";
+    $installer_abs =~ tr|/|\\|;
+    $expected_abs  =~ tr|/|\\|;
+    return 0 unless lc($installer_abs) eq lc($expected_abs);
+
+    my $stamp = $$ . '_' . int(time * 1000) . '_' . int(rand(100000));
+    my $waiter = "$tmp\\cs_upgrade_$stamp.cmd";
+
+    my $fh;
+    return 0 unless open $fh, '>:raw', $waiter;
+
+    # tasklist is available on every supported Windows version (Win7+).  The
+    # output text itself need not be English; we only search the filtered row
+    # for the numeric PID surrounded by column whitespace.
+    print {$fh} "\@echo off\r\n";
+    print {$fh} "setlocal\r\n";
+    print {$fh} "set \"PARENT_PID=$$\"\r\n";
+    print {$fh} "set \"INSTALLER=%~dp0$installer_name\"\r\n";
+    print {$fh} ":wait_parent\r\n";
+    print {$fh} "tasklist /FI \"PID eq %PARENT_PID%\" /NH 2>NUL | findstr /R /C:\"[ ]%PARENT_PID%[ ]\" >NUL\r\n";
+    print {$fh} "if not errorlevel 1 (\r\n";
+    print {$fh} "  ping -n 2 127.0.0.1 >NUL 2>NUL\r\n";
+    print {$fh} "  goto wait_parent\r\n";
+    print {$fh} ")\r\n";
+    print {$fh} "rem Extra grace period after the old client process disappears.\r\n";
+    print {$fh} "ping -n 3 127.0.0.1 >NUL 2>NUL\r\n";
+    print {$fh} "if not exist \"%INSTALLER%\" exit /b 2\r\n";
+    print {$fh} "start \"\" /wait \"%INSTALLER%\"\r\n";
+    print {$fh} "set \"RC=%ERRORLEVEL%\"\r\n";
+    print {$fh} "del /f /q \"%INSTALLER%\" >NUL 2>NUL\r\n";
+    print {$fh} "del /f /q \"%~f0\" >NUL 2>NUL\r\n";
+    print {$fh} "exit /b %RC%\r\n";
+    close $fh;
+
+    my $cmdline = qq($comspec /D /S /C call "$waiter");
+    my $proc;
+    my $created = Win32::Process::Create(
+        $proc,
+        $comspec,
+        $cmdline,
+        0,                      # do not inherit client/PAR/Tkx handles
+        $CREATE_NO_WINDOW_FLAG,
+        $tmp,                   # do not keep bin\\ as the child cwd
+    );
+
+    if (!$created) {
+        unlink $waiter if -e $waiter;
+        return 0;
+    }
 
     return 1;
 }

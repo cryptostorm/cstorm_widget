@@ -16,15 +16,6 @@ our @EXPORT_OK = qw(
     save_config
 );
 
-sub _saved_scalar {
-    my ($value) = @_;
-    return '' unless defined $value;
-    return '' if ref($value);
-    $value =~ s/^\s+|\s+$//g;
-    return '' if $value =~ /^HASH\(0x[0-9a-f]+\)$/i;
-    return $value;
-}
-
 sub restore_upgrade_files {
     my (%args) = @_;
     my $state = $args{state} or die "restore_upgrade_files: missing state";
@@ -224,8 +215,7 @@ sub save_legacy_config_ini {
     }
 
     print $fh "tunnel_ssh=on\n" if ($state->{transport}->{ssh_enabled} // '') eq "on";
-    my $ssh_tunnel = _saved_scalar($state->{transport}->{ssh_tunnel});
-    print $fh "tunnel_host=$ssh_tunnel\n" if length $ssh_tunnel;
+    print $fh "tunnel_host=$state->{transport}->{ssh_tunnel}\n" if length($state->{transport}->{ssh_tunnel} // '');
     print $fh "tunnel_https=on\n" if ($state->{transport}->{https_enabled} // '') eq "on";
     print $fh "https_mode=$state->{transport}->{https_mode}\n" if length($state->{transport}->{https_mode} // '');
     print $fh "sni_host=$state->{transport}->{sni_host}\n" if length($state->{transport}->{sni_host} // '');
@@ -262,8 +252,6 @@ sub load_config_json {
         }
     }
 
-    $state->{transport}->{ssh_tunnel} = _saved_scalar($state->{transport}->{ssh_tunnel});
-
     return 1;
 }
 
@@ -296,7 +284,7 @@ sub save_config_json {
             socks_port      => $state->{transport}->{socks_port},
             socks_noauth    => $state->{transport}->{socks_noauth},
             ssh_enabled     => $state->{transport}->{ssh_enabled},
-            ssh_tunnel      => _saved_scalar($state->{transport}->{ssh_tunnel}),
+            ssh_tunnel      => $state->{transport}->{ssh_tunnel},
             https_enabled   => $state->{transport}->{https_enabled},
             https_mode      => $state->{transport}->{https_mode},
             sni_host        => $state->{transport}->{sni_host},
