@@ -33,7 +33,10 @@ sub build_options_window {
 	-compound => 'top', 
 	-text => "Widget v$VERSION\n" .
 	         "OpenVPN: $state->{app}->{ovpn_ver}\n" .
-			 "OpenSSL: $state->{app}->{ossl_ver}");
+			 "OpenSSL: $state->{app}->{ossl_ver}\n" .
+			 "plink: $state->{app}->{ossh_ver}\n" .
+			 "stunnel: $state->{app}->{stunnel_ver}\n" .
+			 "xray: $state->{app}->{xray_ver}\n");
 $ui->{opt_main}{back_btn} = $ui->{opt_main}{frame}->new_ttk__button(-text => $L->{$lang}{TXT_BACK}, -command => $backtomain);
 $ui->{opt_main}->{ow}->g_bind("<Escape>", sub { $ui->{opt_main}{back_btn}->invoke(); });
 Tkx::update('idletasks');

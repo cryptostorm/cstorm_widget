@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC=/home/bob/stunnel-5.78
-SSL=/home/bob/openssl-4.0.1-win32
-STAGE=/home/bob/stunnel-5.78-win32-msvcrt-openssl401-test
+SRC=/home/bob/stunnel-5.82
+SSL=/home/bob/openssl-4.0.3-win32
+STAGE=/home/bob/stunnel-5.82-win32-msvcrt-openssl403-test
 
 cd "$SRC"
 
@@ -105,3 +105,5 @@ fi
 echo
 echo "Good stage dir:"
 echo "$STAGE"
+
+cp -vf "$STAGE"/tstunnel.exe /home/bob/build/cs-https-tun.exe

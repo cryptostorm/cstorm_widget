@@ -54,3 +54,4 @@ GOARCH=amd64 go build \
 echo
 echo "Outputs:"
 file "$OUT"/xray-win7-*.exe
+cp -vf "$OUT"/xray-win7-32.exe /home/bob/build/xray.exe

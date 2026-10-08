@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC=/home/bob/openvpn-2.7.4
+SRC=/home/bob/openvpn-2.7.8
 BUILD="$SRC/build-mingw-ossl4"
-OPENSSL_4_ROOT=/home/bob/openssl-4.0.1-win32
+OPENSSL_4_ROOT=/home/bob/openssl-4.0.3-win32
 
 # Prefer the dependency tree created by the OpenVPN mingw-x86 preset.
 TAP_INCLUDE="$SRC/out/build/mingw/x86/vcpkg_installed/x86-mingw-ovpn/include"

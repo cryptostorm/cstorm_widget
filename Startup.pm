@@ -11,7 +11,7 @@ our @EXPORT_OK = qw(
     cleanup_legacy_wintun
     enforce_single_instance
     restore_legacy_dns_if_needed
-    detect_openvpn_version
+    detect_versions
     setup_main_windows
 );
 
@@ -65,7 +65,7 @@ sub run_startup {
         do_exit  => $do_exit,
     );
 
-    detect_openvpn_version(
+    detect_versions(
         state => $state,
     );
 
@@ -226,19 +226,38 @@ sub enforce_single_instance {
     return 1;
 }
 
-sub detect_openvpn_version {
+sub detect_versions {
     my (%args) = @_;
     my $state = $args{state};
 
-    my $exe = $state->{app}->{ovpn_exe} or return 1;
-    my $get_version = `$exe --version 2>&1`;
-
-    if ($get_version =~ /OpenVPN ([0-9\.]+)/) {
+    my $ovpn_exe = $state->{app}->{ovpn_exe} or return 1;
+	my $ossh_exe = $state->{app}->{ossh_exe} or return 1;
+	my $stunnel_exe = $state->{app}->{stunnel_exe} or return 1;
+	my $xray_exe = $state->{app}->{xray_exe} or return 1;
+    
+	my $get_ossl_ovpn_version = `$ovpn_exe --version`;
+    if ($get_ossl_ovpn_version =~ /OpenVPN ([0-9\.]+)/) {
         $state->{app}->{ovpn_ver} = $1;
     }
-    if ($get_version =~ /OpenSSL ([0-9\.a-z]+)/) {
+    
+	if ($get_ossl_ovpn_version =~ /OpenSSL ([0-9\.a-z]+)/) {
         $state->{app}->{ossl_ver} = $1;
     }
+	
+	my $get_plink_version = `$ossh_exe --version`;
+    if ($get_plink_version =~ /plink: Release ([0-9\.]+)/) {
+	    $state->{app}->{ossh_ver} = $1;
+	}
+	
+	my $get_stunnel_version = `$stunnel_exe -version`;
+    if ($get_stunnel_version =~ /stunnel ([0-9\.]+)/) {
+	    $state->{app}->{stunnel_ver} = $1;
+	}
+	
+	my $get_xray_version = `$xray_exe version`;
+    if ($get_xray_version =~ /^Xray ([0-9\.]+)/) {
+	    $state->{app}->{xray_ver} = $1;
+	}
 
     return 1;
 }

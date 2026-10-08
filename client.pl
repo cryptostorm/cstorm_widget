@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 our $VERSION;
 BEGIN {
-    $VERSION = "4.04";
+    $VERSION = "4.05";
 	# Set version-specific PAR cache folder to ensure updates don't run old code
     $ENV{PAR_GLOBAL_TEMP} = 1 unless defined $ENV{PAR_GLOBAL_TEMP};
     $ENV{PAR_CACHE_ID} = "cswidget_v${VERSION}" unless defined $ENV{PAR_CACHE_ID};
@@ -94,10 +94,16 @@ my $state = {
         auth_file => '..\user\client.dat',
 		serversfile => '..\user\latest_list.json',
 		clip => Win32::Clipboard(),
-		ovpn_exe => "csvpn.exe",
-		ovpn_ver => {},
+		ossh_exe => "cs-ssh-tun.exe",
+		ossh_ver => {},
 		ossl_exe => "ossl.exe",
 		ossl_ver => {},
+		ovpn_exe => "csvpn.exe",
+		ovpn_ver => {},
+		stunnel_exe => "cs-https-tun.exe",
+		stunnel_ver => {},
+		xray_exe => "xray.exe",
+		xray_ver => {},		
 		self_exe => {}
     },
 

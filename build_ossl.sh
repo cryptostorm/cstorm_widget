@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC=/home/bob/openssl-4.0.1
-PREFIX=/home/bob/openssl-4.0.1-win32
+SRC=/home/bob/openssl-4.0.3
+PREFIX=/home/bob/openssl-4.0.3-win32
 TARGET=mingw
 CROSS=i686-w64-mingw32-
 
@@ -44,6 +44,7 @@ echo
 echo "OpenSSL executable imports:"
 i686-w64-mingw32-objdump -p "$PREFIX/bin/openssl.exe" | grep 'DLL Name' || true
 
-cp -vf "$PREFIX/bin/openssl.exe" /home/bob/build/
-mv -vf /home/bob/build/openssl.exe /home/bob/build/ossl.exe
+cp -vf "$PREFIX/bin/openssl.exe" /home/bob/build/ossl.exe
+cp -vf "$PREFIX/bin/libssl-4.dll" /home/bob/build/
+cp -vf "$PREFIX/bin/libcrypto-4.dll" /home/bob/build/
 
